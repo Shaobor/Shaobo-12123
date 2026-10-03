@@ -65,11 +65,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # 自动提取现有条目或专属存储中的授权码作为默认预填值
         existing_code = ""
+        existing_access_token = ""
+        existing_label = "12123"
+        existing_backend_url = DEFAULT_BACKEND_URL
+
         for existing in self.hass.config_entries.async_entries(DOMAIN):
             code = existing.data.get(CONF_AUTHORIZATION_CODE)
             if code:
                 existing_code = str(code).strip()
+                existing_access_token = str(existing.data.get(CONF_ACCESS_TOKEN) or "").strip()
+                existing_label = str(existing.data.get(CONF_AUTHORIZATION_LABEL) or "12123").strip()
+                existing_backend_url = str(existing.data.get(CONF_BACKEND_URL) or DEFAULT_BACKEND_URL).strip()
                 break
+
         if not existing_code:
             try:
                 from ..storage import async_load_12123_accounts, AuthorizationDraftStore
@@ -81,9 +89,38 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     for acc in accounts.values():
                         if isinstance(acc, dict) and acc.get(CONF_AUTHORIZATION_CODE):
                             existing_code = str(acc[CONF_AUTHORIZATION_CODE]).strip()
+                            existing_access_token = str(acc.get(CONF_ACCESS_TOKEN) or "").strip()
                             break
             except Exception:
                 pass
+
+        # 如果已有授权码且首次进入，自动静默鉴权并直接跳过此步直达登录页面
+        if user_input is None and existing_code:
+            ha_instance_id = await instance_id.async_get(self.hass)
+            backend_url = existing_backend_url or DEFAULT_BACKEND_URL
+            try:
+                client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url)
+                result = await client.async_authorize(existing_code, ha_instance_id)
+                raw_data = result.get("data") if isinstance(result, dict) else None
+                data: dict[str, Any] = raw_data if isinstance(raw_data, dict) else {}
+                access_token = str(data.get("access_token") or "").strip()
+                if not access_token and existing_access_token:
+                    access_token = existing_access_token
+                if access_token:
+                    self._authorization_code = existing_code
+                    self._backend_url = backend_url
+                    self._access_token = access_token
+                    self._ha_instance_id = ha_instance_id
+                    self._authorization_label = str(data.get("authorization_label") or existing_label or "12123")
+                    return await self.async_step_login()
+            except Exception:
+                if existing_access_token:
+                    self._authorization_code = existing_code
+                    self._backend_url = backend_url
+                    self._access_token = existing_access_token
+                    self._ha_instance_id = ha_instance_id
+                    self._authorization_label = existing_label or "12123"
+                    return await self.async_step_login()
 
         if user_input is not None:
             auth_code = str(user_input.get(CONF_AUTHORIZATION_CODE) or "").strip()
