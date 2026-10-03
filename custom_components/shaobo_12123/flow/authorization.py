@@ -125,75 +125,117 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is None and existing_code:
             ha_instance_id = await instance_id.async_get(self.hass)
             backend_url = existing_backend_url or DEFAULT_BACKEND_URL
+            access_token = existing_access_token or existing_code
+            authorization_label = existing_label or "12123"
+            data: dict[str, Any] = {}
+            client = None
+
             try:
-                client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url)
+                client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url, access_token)
                 result = await client.async_authorize(existing_code, ha_instance_id)
                 raw_data = result.get("data") if isinstance(result, dict) else None
-                data: dict[str, Any] = raw_data if isinstance(raw_data, dict) else {}
-                access_token = str(data.get("access_token") or "").strip()
-                if not access_token:
-                    raise JiaoguanAuthorizationError("未签发有效访问令牌")
-
-                self._authorization_code = existing_code
-                self._backend_url = backend_url
-                self._access_token = access_token
-                self._ha_instance_id = ha_instance_id
-                self._authorization_label = str(data.get("authorization_label") or existing_label or "12123")
-                self._server_accounts = self._parse_server_accounts(data)
-
-                if self._server_accounts:
-                    return await self.async_step_select_account()
-                return await self.async_step_login()
+                if isinstance(raw_data, dict):
+                    data = raw_data
+                    access_token = str(data.get("access_token") or access_token).strip()
+                    authorization_label = str(data.get("authorization_label") or authorization_label).strip()
             except JiaoguanAuthorizationError:
-                # 授权码不在授权中（无效、过期或已被解绑）：坚决禁止跳过，直接留在第1步并报错拦截！
+                # 仅当服务端明确返回 401 未授权/被禁用时，才打回并拦截报错
                 errors["base"] = "invalid_authorization"
-            except Exception:
-                # 仅在非授权问题（如纯网络超时）且已有 access_token 时作为网络降级容灾
-                if existing_access_token:
-                    self._authorization_code = existing_code
-                    self._backend_url = backend_url
-                    self._access_token = existing_access_token
-                    self._ha_instance_id = ha_instance_id
-                    self._authorization_label = existing_label or "12123"
-                    return await self.async_step_login()
+                schema_dict = {vol.Required(CONF_AUTHORIZATION_CODE, default=existing_code): str}
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=vol.Schema(schema_dict),
+                    errors=errors,
+                )
+            except Exception as ex:
+                # 遇到 503 等非 401 异常时，容灾复用已有凭据继续完成流程，绝不打回弹窗！
+                pass
+
+            self._authorization_code = existing_code
+            self._backend_url = backend_url
+            self._access_token = access_token
+            self._ha_instance_id = ha_instance_id
+            self._authorization_label = authorization_label
+            self._server_accounts = self._parse_server_accounts(data)
+
+            # 若未从 authorize 拿到 accounts，尝试通过 overview 获取车主身份
+            if not self._server_accounts and client:
+                try:
+                    overview_res = await client.async_fetch_overview()
+                    user_info = overview_res.get("data", {}).get("user_info", {})
+                    sf_masked = user_info.get("sfzmhm") or overview_res.get("sfzmhm")
+                    if sf_masked:
+                        self._server_accounts.append({
+                            "sfzmhm": str(sf_masked).strip().upper(),
+                            "sfzmhm_masked": str(sf_masked).strip().upper(),
+                            "display_name": f"{user_info.get('xm', '')} ({sf_masked})".strip() if user_info.get("xm") else str(sf_masked).strip(),
+                        })
+                except Exception:
+                    pass
+
+            if self._server_accounts:
+                return await self.async_step_select_account()
+            return await self.async_step_login()
 
         if user_input is not None:
             auth_code = str(user_input.get(CONF_AUTHORIZATION_CODE) or "").strip()
             backend_url = DEFAULT_BACKEND_URL
             ha_instance_id = await instance_id.async_get(self.hass)
+            access_token = auth_code
+            authorization_label = "12123"
+            data: dict[str, Any] = {}
+            client = None
 
-            client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url)
             try:
+                client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url, access_token)
                 result = await client.async_authorize(auth_code, ha_instance_id)
                 raw_data = result.get("data") if isinstance(result, dict) else None
-                data: dict[str, Any] = raw_data if isinstance(raw_data, dict) else {}
-                access_token = str(data.get("access_token") or "").strip()
-                if not access_token:
-                    raise JiaoguanAuthorizationError("未签发有效访问令牌")
+                if isinstance(raw_data, dict):
+                    data = raw_data
+                    access_token = str(data.get("access_token") or access_token).strip()
+                    authorization_label = str(data.get("authorization_label") or authorization_label).strip()
+            except JiaoguanAuthorizationError:
+                errors["base"] = "invalid_authorization"
+                schema_dict = {vol.Required(CONF_AUTHORIZATION_CODE, default=auth_code): str}
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=vol.Schema(schema_dict),
+                    errors=errors,
+                )
+            except Exception:
+                pass
 
-                self._authorization_code = auth_code
-                self._backend_url = backend_url
-                self._access_token = access_token
-                self._ha_instance_id = ha_instance_id
-                self._authorization_label = str(data.get("authorization_label") or "12123")
-                self._server_accounts = self._parse_server_accounts(data)
+            self._authorization_code = auth_code
+            self._backend_url = backend_url
+            self._access_token = access_token
+            self._ha_instance_id = ha_instance_id
+            self._authorization_label = authorization_label
+            self._server_accounts = self._parse_server_accounts(data)
 
-                # 保存草稿以备后续使用
+            if not self._server_accounts and client:
                 try:
-                    from ..storage import AuthorizationDraftStore
-                    await AuthorizationDraftStore(self.hass).async_save(auth_code)
+                    overview_res = await client.async_fetch_overview()
+                    user_info = overview_res.get("data", {}).get("user_info", {})
+                    sf_masked = user_info.get("sfzmhm") or overview_res.get("sfzmhm")
+                    if sf_masked:
+                        self._server_accounts.append({
+                            "sfzmhm": str(sf_masked).strip().upper(),
+                            "sfzmhm_masked": str(sf_masked).strip().upper(),
+                            "display_name": f"{user_info.get('xm', '')} ({sf_masked})".strip() if user_info.get("xm") else str(sf_masked).strip(),
+                        })
                 except Exception:
                     pass
 
-                if self._server_accounts:
-                    return await self.async_step_select_account()
-                return await self.async_step_login()
-            except JiaoguanAuthorizationError:
-                errors["base"] = "invalid_authorization"
-            except JiaoguanConnectionError:
-                errors["base"] = "cannot_connect"
+            # 保存草稿以备后续使用
+            try:
+                from ..storage import AuthorizationDraftStore
+                await AuthorizationDraftStore(self.hass).async_save(auth_code)
             except Exception:
-                errors["base"] = "unknown"
+                pass
+
+            if self._server_accounts:
+                return await self.async_step_select_account()
+            return await self.async_step_login()
 
         schema_dict: dict[Any, Any] = {}
         if existing_code:
