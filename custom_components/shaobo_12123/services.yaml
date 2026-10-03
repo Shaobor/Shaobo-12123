@@ -7,5 +7,5 @@ refresh_violations:
       description: 指定要刷新的车辆违章实体；不填写时刷新所有 12123 配置。
       selector:
         entity:
-          integration: "shaobo_12123"
+          integration: "12123"
           domain: sensor

@@ -3,7 +3,7 @@
 import os
 from typing import Final
 
-DOMAIN: Final = "shaobo_12123"
+DOMAIN: Final = "12123"
 PLATFORMS: Final = ["sensor"]
 SERVICE_REFRESH_VIOLATIONS: Final = "refresh_violations"
 

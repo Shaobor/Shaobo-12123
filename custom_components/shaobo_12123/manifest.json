@@ -1,7 +1,9 @@
 {
-  "domain": "shaobo_12123",
+  "domain": "12123",
   "name": "12123",
-  "codeowners": ["@shaobor"],
+  "codeowners": [
+    "@shaobor"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/Shaobor/Shaobor-12123",
   "iot_class": "cloud_polling",

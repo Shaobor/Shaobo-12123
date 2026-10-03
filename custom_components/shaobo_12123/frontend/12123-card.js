@@ -541,11 +541,11 @@
       this._render();
       try {
         try {
-          await this._hass.callService("shaobo_12123", "refresh_violations", {
+          await this._hass.callService("12123", "refresh_violations", {
             entity_id: this._config.violation_entity,
           });
         } catch (_) {
-          await this._hass.callService("12123", "refresh_violations", {
+          await this._hass.callService("shaobo_12123", "refresh_violations", {
             entity_id: this._config.violation_entity,
           });
         }
