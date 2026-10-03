@@ -3,7 +3,7 @@
 # 🚗 12123 (Shaobo 12123)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/default)
-[![version](https://img.shields.io/badge/Version-2.9.18-blue.svg?style=for-the-badge)](https://github.com/Shaobor/Shaobor-12123)
+[![version](https://img.shields.io/badge/Version-3.0-blue.svg?style=for-the-badge)](https://github.com/Shaobor/Shaobo-12123)
 [![license](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home--Assistant-2026.1%2B-blueviolet.svg?style=for-the-badge)](https://www.home-assistant.io/)
 

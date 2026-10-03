@@ -35,7 +35,7 @@ JiaoguanConfigEntry = ConfigEntry[JiaoguanDataUpdateCoordinator]
 
 _LOGGER = logging.getLogger(__name__)
 _CARD_URL = f"/{DOMAIN}/12123-card.js"
-_CARD_VERSION = "2.9.18"
+_CARD_VERSION = "3.0.0"
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:
