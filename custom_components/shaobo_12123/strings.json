@@ -1,0 +1,56 @@
+{
+  "title": "12123",
+  "config": {
+    "step": {
+      "user": {
+        "title": "12123 授权认证",
+        "description": "请输入您的 12123 授权码。系统将自动获取专属访问令牌并与当前 Home Assistant 实例安全绑定。",
+        "data": {
+          "authorization_code": "授权码"
+        }
+      },
+      "login": {
+        "title": "绑定 12123 车主账号",
+        "description": "授权验证通过！检测到当前授权码尚未绑定车主信息，请输入官方登录抓包参数完成车主档案绑定。",
+        "data": {
+          "device_id": "设备 ID（device_id，40 位）",
+          "data": "登录响应密文（data，响应 JSON）",
+          "mobileSessionId": "会话 ID（mobileSessionId，响应头）",
+          "token": "长效票据（token-，登录请求）"
+        }
+      }
+    },
+    "error": {
+      "invalid_authorization": "授权码无效、已过期或已被其他设备绑定。",
+      "sfzmhm_unavailable": "后端未返回完整车主身份证号，请先部署新版 12123-server 后重试。",
+      "cannot_connect": "无法连接到后端，请检查后端网关地址和网络。",
+      "unknown": "授权验证时发生未知错误。",
+      "login_failed": "登录参数无效、登录已失效，或后端未能保存会话。请提交新的登录抓包参数。"
+    },
+    "abort": {
+      "already_configured": "此授权码或车主已在当前系统配置。",
+      "reauth_successful": "12123 授权与登录已更新。",
+      "reauth_failed": "重新认证失败，未找到对应配置条目。",
+      "already_in_progress": "12123 配置正在进行中，请先关闭当前配置窗口。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "12123 设置",
+        "description": "分别设置普通数据、违章信息和消息中心的自动刷新间隔，均不能少于 10 分钟。未单独设置消息间隔时沿用普通数据间隔；违章信息默认 60 分钟。",
+        "data": {
+          "scan_interval_minutes": "普通数据刷新间隔（分钟）",
+          "violation_scan_interval_minutes": "违章信息刷新间隔（分钟）",
+          "message_scan_interval_minutes": "消息中心刷新间隔（分钟）"
+        }
+      }
+    },
+    "error": {
+      "invalid_scan_interval": "请输入有效的分钟数。",
+      "scan_interval_too_short": "普通数据刷新间隔不能少于 10 分钟。",
+      "violation_scan_interval_too_short": "违章信息刷新间隔不能少于 10 分钟。",
+      "message_scan_interval_too_short": "消息中心刷新间隔不能少于 10 分钟。"
+    }
+  }
+}

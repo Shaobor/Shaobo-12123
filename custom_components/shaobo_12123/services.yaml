@@ -1,0 +1,11 @@
+refresh_violations:
+  name: 刷新违章信息
+  description: 立即重新请求车辆违章记录并下载官方违章图片到本地。
+  fields:
+    entity_id:
+      name: 违章实体
+      description: 指定要刷新的车辆违章实体；不填写时刷新所有 12123 配置。
+      selector:
+        entity:
+          integration: "shaobo_12123"
+          domain: sensor

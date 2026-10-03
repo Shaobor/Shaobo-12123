@@ -1,0 +1,41 @@
+# Python 编译与临时缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+*.log
+
+# Node 依赖与临时文件
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# 系统与编辑器缓存
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+.vscode/
+.idea/
+.codebuddy/
+pyrefly.toml
+
+# ==========================================
+# 屏蔽私有后端服务、底层协议工具与抓包逆向数据
+# ==========================================
+12123-server/
+12123/
+12123_client/
+docs/
+proto/
+tests/
+packages/
+ha
+*.bin
+*.hex
+*.ipa
