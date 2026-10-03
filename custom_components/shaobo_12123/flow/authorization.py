@@ -39,6 +39,36 @@ from ..const import (
 from .options import OptionsFlowHandler
 
 
+def _mask_name(name: str) -> str:
+    """车主姓名脱敏：2字脱敏为'张*'，3字脱敏为'王*博'，4字及以上脱敏为'诸**明'。"""
+    name = (name or "").strip()
+    if not name:
+        return ""
+    if len(name) == 1:
+        return name
+    if len(name) == 2:
+        return f"{name[0]}*"
+    return f"{name[0]}{'*' * (len(name) - 2)}{name[-1]}"
+
+
+def _mask_display_name(disp: str = "", name: str = "", sf: str = "") -> str:
+    """格式化展示名称：带脱敏姓名与脱敏身份证号。"""
+    masked_sf = f"{sf[:6]}********{sf[-4:]}" if len(sf) >= 15 else sf
+    if name:
+        m_name = _mask_name(name)
+        return f"{m_name} ({masked_sf})" if masked_sf else m_name
+
+    disp = (disp or "").strip()
+    match = re.match(r"^([^\(\（]+)[\(\（](.*)[\)\）]$", disp)
+    if match:
+        orig_name = match.group(1).strip()
+        sf_part = match.group(2).strip()
+        return f"{_mask_name(orig_name)} ({sf_part})"
+    if disp and not sf:
+        return _mask_name(disp)
+    return disp
+
+
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle 12123 config flow: authorization code verification then login."""
 
@@ -70,19 +100,23 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     sf = str(item.get("sfzmhm") or "").strip().upper()
                     if sf:
                         masked = str(item.get("sfzmhm_masked") or sf).strip().upper()
-                        disp = str(item.get("display_name") or masked).strip()
+                        xm = str(item.get("xm") or item.get("user_name") or "").strip()
+                        raw_disp = str(item.get("display_name") or "").strip()
+                        disp = _mask_display_name(raw_disp, xm, sf) or masked
                         accounts.append({
                             "sfzmhm": sf,
                             "sfzmhm_masked": masked,
                             "display_name": disp,
+                            "user_name": xm,
                         })
         if not accounts and data.get("is_bound"):
             bound_sf = str(data.get("bound_sfzmhm") or data.get("sfzmhm") or "").strip().upper()
             if bound_sf:
+                masked = f"{bound_sf[:6]}********{bound_sf[-4:]}" if len(bound_sf) >= 15 else bound_sf
                 accounts.append({
                     "sfzmhm": bound_sf,
-                    "sfzmhm_masked": bound_sf,
-                    "display_name": bound_sf,
+                    "sfzmhm_masked": masked,
+                    "display_name": masked,
                 })
         return accounts
 
@@ -116,7 +150,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             xm = str(u.get("xm") or "").strip()
                             if sf:
                                 masked = f"{sf[:6]}********{sf[-4:]}" if len(sf) >= 15 else sf
-                                disp = f"{xm} ({masked})" if xm else masked
+                                disp = _mask_display_name("", xm, sf)
                                 accounts_map[sf] = {
                                     "sfzmhm": sf,
                                     "sfzmhm_masked": masked,
@@ -136,7 +170,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if sf_clean not in accounts_map:
                         xm = str(acc.get("user_name") or acc.get("xm") or "").strip()
                         masked = f"{sf_clean[:6]}********{sf_clean[-4:]}" if len(sf_clean) >= 15 else sf_clean
-                        disp = f"{xm} ({masked})" if xm else masked
+                        raw_disp = str(acc.get("display_name") or "").strip()
+                        disp = _mask_display_name(raw_disp, xm, sf_clean)
                         accounts_map[sf_clean] = {
                             "sfzmhm": sf_clean,
                             "sfzmhm_masked": masked,
@@ -350,6 +385,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_HA_INSTANCE_ID: self._ha_instance_id,
                 }
                 title = acc.get("display_name") if acc else sfzmhm_to_use
+                try:
+                    from ..storage import async_save_12123_account
+                    await async_save_12123_account(
+                        self.hass,
+                        sfzmhm_to_use,
+                        {
+                            CONF_AUTHORIZATION_CODE: self._authorization_code,
+                            CONF_BACKEND_URL: self._backend_url,
+                            CONF_ACCESS_TOKEN: self._access_token,
+                            CONF_SFZMHM: sfzmhm_to_use,
+                            CONF_SFZMHM_FULL: sfzmhm_to_use,
+                            CONF_AUTHORIZATION_LABEL: self._authorization_label,
+                            "display_name": title,
+                            "user_name": acc.get("user_name") if acc else "",
+                        },
+                    )
+                except Exception:
+                    pass
+
                 return self.async_create_entry(
                     title=title,
                     data=entry_data,
@@ -410,7 +464,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 ):
                                     return self.async_abort(reason="already_configured")
 
-                        await client.async_fetch_overview()
+                        xm = ""
+                        try:
+                            overview_res = await client.async_fetch_overview()
+                            user_info = overview_res.get("data", {}).get("user_info", {})
+                            xm = str(user_info.get("xm") or "").strip()
+                        except Exception:
+                            pass
+
+                        title = _mask_display_name("", xm, sfzmhm) or self._authorization_label
+
                         entry_data = {
                             CONF_AUTHORIZATION_CODE: self._authorization_code,
                             CONF_BACKEND_URL: self._backend_url,
@@ -420,6 +483,26 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_AUTHORIZATION_LABEL: self._authorization_label,
                             CONF_HA_INSTANCE_ID: self._ha_instance_id,
                         }
+
+                        try:
+                            from ..storage import async_save_12123_account
+                            await async_save_12123_account(
+                                self.hass,
+                                sfzmhm,
+                                {
+                                    CONF_AUTHORIZATION_CODE: self._authorization_code,
+                                    CONF_BACKEND_URL: self._backend_url,
+                                    CONF_ACCESS_TOKEN: self._access_token,
+                                    CONF_SFZMHM: sfzmhm,
+                                    CONF_SFZMHM_FULL: sfzmhm,
+                                    CONF_AUTHORIZATION_LABEL: self._authorization_label,
+                                    "display_name": title,
+                                    "user_name": xm,
+                                },
+                            )
+                        except Exception:
+                            pass
+
                         if self._target_entry_id:
                             entry = self.hass.config_entries.async_get_entry(self._target_entry_id)
                             return self.async_update_reload_and_abort(
@@ -427,7 +510,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 data_updates=entry_data,
                             )
                         return self.async_create_entry(
-                            title=self._authorization_label,
+                            title=title,
                             data=entry_data,
                         )
             except JiaoguanAuthorizationError:
