@@ -86,6 +86,68 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 })
         return accounts
 
+    async def _async_discover_server_accounts(
+        self,
+        client: JiaoguanApiClient | None,
+        auth_data: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """多源动态探查服务器上已有车主档案与本地缓存车主列表。"""
+        accounts_map: dict[str, dict[str, Any]] = {}
+
+        # 1. 尝试从 authorize 接口返回数据提取
+        for acc in self._parse_server_accounts(auth_data):
+            sf = acc.get("sfzmhm")
+            if sf:
+                accounts_map[sf] = acc
+
+        # 2. 尝试从服务端 /api/admin/repair_users_table 提取已在服务器登录的车主
+        if client:
+            try:
+                repair_res = await client._post("/api/admin/repair_users_table", {})
+                current_users = (
+                    repair_res.get("current_users")
+                    or (repair_res.get("data", {}) if isinstance(repair_res.get("data"), dict) else {}).get("current_users")
+                    or []
+                )
+                if isinstance(current_users, list):
+                    for u in current_users:
+                        if isinstance(u, dict):
+                            sf = str(u.get("sfzmhm") or "").strip().upper()
+                            xm = str(u.get("xm") or "").strip()
+                            if sf:
+                                masked = f"{sf[:6]}********{sf[-4:]}" if len(sf) >= 15 else sf
+                                disp = f"{xm} ({masked})" if xm else masked
+                                accounts_map[sf] = {
+                                    "sfzmhm": sf,
+                                    "sfzmhm_masked": masked,
+                                    "display_name": disp,
+                                    "user_name": xm,
+                                }
+            except Exception:
+                pass
+
+        # 3. 尝试从 HA 本地专属存储 (.storage/Shaobo_12123) 提取
+        try:
+            from ..storage import async_load_12123_accounts
+            saved = await async_load_12123_accounts(self.hass)
+            for sf, acc in saved.items():
+                if sf and sf != "draft_authorization_code" and isinstance(acc, dict):
+                    sf_clean = str(sf).strip().upper()
+                    if sf_clean not in accounts_map:
+                        xm = str(acc.get("user_name") or acc.get("xm") or "").strip()
+                        masked = f"{sf_clean[:6]}********{sf_clean[-4:]}" if len(sf_clean) >= 15 else sf_clean
+                        disp = f"{xm} ({masked})" if xm else masked
+                        accounts_map[sf_clean] = {
+                            "sfzmhm": sf_clean,
+                            "sfzmhm_masked": masked,
+                            "display_name": disp,
+                            "user_name": xm,
+                        }
+        except Exception:
+            pass
+
+        return list(accounts_map.values())
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Step 1: Input authorization code and backend url."""
         errors: dict[str, str] = {}
@@ -138,6 +200,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data = raw_data
                     access_token = str(data.get("access_token") or access_token).strip()
                     authorization_label = str(data.get("authorization_label") or authorization_label).strip()
+                    client.set_access_token(access_token)
             except JiaoguanAuthorizationError:
                 # 仅当服务端明确返回 401 未授权/被禁用时，才打回并拦截报错
                 errors["base"] = "invalid_authorization"
@@ -147,7 +210,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data_schema=vol.Schema(schema_dict),
                     errors=errors,
                 )
-            except Exception as ex:
+            except Exception:
                 # 遇到 503 等非 401 异常时，容灾复用已有凭据继续完成流程，绝不打回弹窗！
                 pass
 
@@ -156,22 +219,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._access_token = access_token
             self._ha_instance_id = ha_instance_id
             self._authorization_label = authorization_label
-            self._server_accounts = self._parse_server_accounts(data)
-
-            # 若未从 authorize 拿到 accounts，尝试通过 overview 获取车主身份
-            if not self._server_accounts and client:
-                try:
-                    overview_res = await client.async_fetch_overview()
-                    user_info = overview_res.get("data", {}).get("user_info", {})
-                    sf_masked = user_info.get("sfzmhm") or overview_res.get("sfzmhm")
-                    if sf_masked:
-                        self._server_accounts.append({
-                            "sfzmhm": str(sf_masked).strip().upper(),
-                            "sfzmhm_masked": str(sf_masked).strip().upper(),
-                            "display_name": f"{user_info.get('xm', '')} ({sf_masked})".strip() if user_info.get("xm") else str(sf_masked).strip(),
-                        })
-                except Exception:
-                    pass
+            self._server_accounts = await self._async_discover_server_accounts(client, data)
 
             if self._server_accounts:
                 return await self.async_step_select_account()
@@ -194,6 +242,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data = raw_data
                     access_token = str(data.get("access_token") or access_token).strip()
                     authorization_label = str(data.get("authorization_label") or authorization_label).strip()
+                    client.set_access_token(access_token)
             except JiaoguanAuthorizationError:
                 errors["base"] = "invalid_authorization"
                 schema_dict = {vol.Required(CONF_AUTHORIZATION_CODE, default=auth_code): str}
@@ -210,21 +259,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._access_token = access_token
             self._ha_instance_id = ha_instance_id
             self._authorization_label = authorization_label
-            self._server_accounts = self._parse_server_accounts(data)
-
-            if not self._server_accounts and client:
-                try:
-                    overview_res = await client.async_fetch_overview()
-                    user_info = overview_res.get("data", {}).get("user_info", {})
-                    sf_masked = user_info.get("sfzmhm") or overview_res.get("sfzmhm")
-                    if sf_masked:
-                        self._server_accounts.append({
-                            "sfzmhm": str(sf_masked).strip().upper(),
-                            "sfzmhm_masked": str(sf_masked).strip().upper(),
-                            "display_name": f"{user_info.get('xm', '')} ({sf_masked})".strip() if user_info.get("xm") else str(sf_masked).strip(),
-                        })
-                except Exception:
-                    pass
+            self._server_accounts = await self._async_discover_server_accounts(client, data)
 
             # 保存草稿以备后续使用
             try:
