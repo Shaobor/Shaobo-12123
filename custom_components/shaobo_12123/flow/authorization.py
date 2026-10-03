@@ -40,7 +40,7 @@ from .options import OptionsFlowHandler
 
 
 def _mask_name(name: str) -> str:
-    """车主姓名脱敏：2字脱敏为'张*'，3字脱敏为'王*博'，4字及以上脱敏为'诸**明'。"""
+    """车主姓名脱敏：2字脱敏为'小*'，3字脱敏为'李*明'，4字及以上脱敏为'欧**雪'。"""
     name = (name or "").strip()
     if not name:
         return ""
