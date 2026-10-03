@@ -12,27 +12,34 @@
   // Custom element names must start with a letter; `12123-card` is rejected
   // by the browser before the card can even receive its configuration.
   const TAG = "ha-12123-card";
-  const VERSION = "3.2.1";
+  const VERSION = "3.2.2";
   const ENTITY_FIELDS = ["user_entity", "driver_entity", "vehicle_entity", "violation_entity", "business_entity", "service_entity", "status_entity"];
 
   const DEFAULTS = {
     title: "12123",
     icon: "https://brands.home-assistant.io/12123/icon.png",
-    theme: "auto",
+    theme: "light",
   };
 
   const CSS = `
     :host { display:block; }
     * { box-sizing:border-box; }
-    .card {
-      /* 支持跟随 Home Assistant 主题变量与毛玻璃质感 */
-      --card-bg: var(--ha-card-background, var(--card-background-color, var(--12123-card-background, rgba(255, 255, 255, 0.82))));
-      --card-border: var(--ha-card-border-color, var(--12123-card-border, rgba(0, 0, 0, 0.08)));
-      --card-radius: var(--ha-card-border-radius, var(--12123-card-radius, 16px));
-      --card-shadow: var(--ha-card-box-shadow, var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.1)));
+    ha-card.card, .card {
+      width:100%; min-width:0;
+      overflow:hidden;
+      font-family:var(--paper-font-body1_-_font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", PingFang SC, Microsoft YaHei, sans-serif);
+      transition:box-shadow .25s ease,transform .25s ease;
+    }
+
+    /* 1. 浅色通透模式（纯正白玉质感，对齐掌上运营商） */
+    ha-card.card.theme-light, .card.theme-light, .card:not(.theme-dark):not(.theme-auto) {
+      --card-bg: var(--12123-card-background, rgba(255, 255, 255, 0.82));
+      --card-border: var(--12123-card-border, rgba(0, 0, 0, 0.08));
+      --card-radius: var(--12123-card-radius, 16px);
+      --card-shadow: var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.1));
       --card-hover-shadow: var(--12123-card-hover-shadow, 0 12px 38px rgba(0, 0, 0, 0.15));
-      --text-primary: var(--primary-text-color, #2c3e50);
-      --text-secondary: var(--secondary-text-color, #7f8c8d);
+      --text-primary: #2c3e50;
+      --text-secondary: #7f8c8d;
       --text-sub: #9e9e9e;
       --panel-bg: rgba(255, 255, 255, 0.65);
       --panel-border: rgba(0, 0, 0, 0.06);
@@ -46,26 +53,24 @@
       --hero-border: rgba(33, 150, 243, 0.12);
       --dialog-bg: rgba(255, 255, 255, 0.98);
 
-      width:100%; min-width:0;
-      color:var(--text-primary);
-      background:var(--card-bg);
-      -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
-      border:1px solid var(--card-border);
-      border-radius:var(--card-radius);
-      box-shadow:var(--card-shadow);
-      overflow:hidden;
-      font-family:var(--paper-font-body1_-_font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", PingFang SC, Microsoft YaHei, sans-serif);
-      transition:box-shadow .25s ease,transform .25s ease;
+      color: var(--text-primary);
+      background: var(--card-bg) !important;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border) !important;
+      border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow) !important;
     }
-    .card:hover { box-shadow:var(--card-hover-shadow); }
+    ha-card.card.theme-light:hover, .card.theme-light:hover { box-shadow: var(--card-hover-shadow) !important; }
 
-    .card.theme-dark {
-      --card-bg: var(--ha-card-background, var(--card-background-color, var(--12123-card-background, rgba(30, 32, 38, 0.85))));
-      --card-border: var(--ha-card-border-color, var(--12123-card-border, rgba(255, 255, 255, 0.1)));
-      --card-shadow: var(--ha-card-box-shadow, var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.4)));
+    /* 2. 深色毛玻璃模式（纯正黑透毛玻璃，对齐奥迪车辆卡片） */
+    ha-card.card.theme-dark, .card.theme-dark {
+      --card-bg: var(--12123-card-background, rgba(30, 32, 38, 0.85));
+      --card-border: var(--12123-card-border, rgba(255, 255, 255, 0.1));
+      --card-radius: var(--12123-card-radius, 16px);
+      --card-shadow: var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.4));
       --card-hover-shadow: var(--12123-card-hover-shadow, 0 12px 38px rgba(0, 0, 0, 0.5));
-      --text-primary: var(--primary-text-color, rgba(255, 255, 255, 0.9));
-      --text-secondary: var(--secondary-text-color, rgba(255, 255, 255, 0.6));
+      --text-primary: rgba(255, 255, 255, 0.9);
+      --text-secondary: rgba(255, 255, 255, 0.6);
       --text-sub: rgba(255, 255, 255, 0.4);
       --panel-bg: rgba(255, 255, 255, 0.06);
       --panel-border: rgba(255, 255, 255, 0.08);
@@ -78,29 +83,44 @@
       --hero-bg: linear-gradient(135deg, rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.04));
       --hero-border: rgba(255, 255, 255, 0.08);
       --dialog-bg: rgba(30, 32, 38, 0.98);
-    }
 
-    @media (prefers-color-scheme: dark) {
-      .card.theme-auto {
-        --card-bg: var(--ha-card-background, var(--card-background-color, var(--12123-card-background, rgba(30, 32, 38, 0.85))));
-        --card-border: var(--ha-card-border-color, var(--12123-card-border, rgba(255, 255, 255, 0.1)));
-        --card-shadow: var(--ha-card-box-shadow, var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.4)));
-        --card-hover-shadow: var(--12123-card-hover-shadow, 0 12px 38px rgba(0, 0, 0, 0.5));
-        --text-primary: var(--primary-text-color, rgba(255, 255, 255, 0.9));
-        --text-secondary: var(--secondary-text-color, rgba(255, 255, 255, 0.6));
-        --text-sub: rgba(255, 255, 255, 0.4);
-        --panel-bg: rgba(255, 255, 255, 0.06);
-        --panel-border: rgba(255, 255, 255, 0.08);
-        --panel-shadow: none;
-        --tab-bg: rgba(255, 255, 255, 0.07);
-        --tab-hover-bg: rgba(33, 150, 243, 0.2);
-        --tab-active-bg: rgba(33, 150, 243, 0.25);
-        --tab-active-text: #64b5f6;
-        --tab-active-border: rgba(33, 150, 243, 0.35);
-        --hero-bg: linear-gradient(135deg, rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.04));
-        --hero-border: rgba(255, 255, 255, 0.08);
-        --dialog-bg: rgba(30, 32, 38, 0.98);
-      }
+      color: var(--text-primary);
+      background: var(--card-bg) !important;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border) !important;
+      border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow) !important;
+    }
+    ha-card.card.theme-dark:hover, .card.theme-dark:hover { box-shadow: var(--card-hover-shadow) !important; }
+
+    /* 3. 跟随系统/仪表盘（完全无任何自身背景，完全读取 HA 仪表盘主题） */
+    ha-card.card.theme-auto, .card.theme-auto {
+      --card-bg: var(--ha-card-background, var(--card-background-color, transparent));
+      --card-border: var(--ha-card-border-color, var(--divider-color, transparent));
+      --card-radius: var(--ha-card-border-radius, 16px);
+      --card-shadow: var(--ha-card-box-shadow, none);
+      --text-primary: var(--primary-text-color, inherit);
+      --text-secondary: var(--secondary-text-color, inherit);
+      --text-sub: var(--secondary-text-color, rgba(125, 125, 125, 0.7));
+      --panel-bg: var(--ha-card-background, rgba(125, 125, 125, 0.08));
+      --panel-border: var(--ha-card-border-color, var(--divider-color, rgba(125, 125, 125, 0.12)));
+      --panel-shadow: none;
+      --tab-bg: rgba(125, 125, 125, 0.08);
+      --tab-hover-bg: rgba(33, 150, 243, 0.15);
+      --tab-active-bg: rgba(33, 150, 243, 0.22);
+      --tab-active-text: var(--primary-color, #2196f3);
+      --tab-active-border: rgba(33, 150, 243, 0.35);
+      --hero-bg: transparent;
+      --hero-border: var(--ha-card-border-color, var(--divider-color, rgba(125, 125, 125, 0.12)));
+      --dialog-bg: var(--ha-card-background, #ffffff);
+
+      color: var(--text-primary);
+      background: var(--card-bg);
+      border: var(--ha-card-border-width, 1px) solid var(--card-border);
+      border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
 
     .card.large .hero { gap:16px; padding:20px 22px 18px; }
@@ -284,9 +304,9 @@
             { value: "normal", label: "标准尺寸" },
           ], mode: "dropdown" } } },
           { name: "theme", selector: { select: { options: [
-            { value: "auto", label: "跟随系统 / 仪表盘（默认）" },
+            { value: "light", label: "浅色通透（默认，对齐掌上运营商）" },
             { value: "dark", label: "深色毛玻璃" },
-            { value: "light", label: "浅色通透" },
+            { value: "auto", label: "跟随系统 / 仪表盘" },
           ], mode: "dropdown" } } },
           ...ENTITY_FIELDS.map((name) => ({ name, selector: entitySelector })),
         ],
@@ -298,7 +318,7 @@
       return {
         title: DEFAULTS.title,
         size: "large",
-        theme: "auto",
+        theme: "light",
       };
     }
 
@@ -422,7 +442,7 @@
     }
 
     _isDarkMode() {
-      const mode = this._config?.theme || "auto";
+      const mode = this._config?.theme || "light";
       if (mode === "dark") return true;
       if (mode === "light") return false;
 
@@ -511,11 +531,10 @@
       const data = this._data();
       const root = document.createElement("div");
       root.innerHTML = `<style>${CSS}</style>`;
-      const card = document.createElement("div");
+      const card = document.createElement("ha-card");
       const sizeClass = this._config.size === "large" ? " large" : "";
-      const themeClass = this._getThemeClass();
-      const themeMode = this._config.theme || "auto";
-      card.className = `card${sizeClass} ${themeClass} theme-${themeMode}`;
+      const themeMode = this._config.theme || "light";
+      card.className = `card${sizeClass} theme-${themeMode}`;
       card.innerHTML = ENTITY_FIELDS.some((key) => this._config[key])
         ? this._renderHero(data) + this._renderTabs() + `<div class="content">${this._renderTabContent(data)}${this._renderFooter(data)}</div>`
         : `<div class="content"><div class="empty">请在卡片配置中选择 12123 传感器实体</div></div>`;
@@ -676,8 +695,8 @@
       const body = item.content || item.nr || item.xxnr || item.description || "";
       const date = item.time || item.fssj || item.create_time || item.date || "";
       const dialog = document.createElement("dialog");
-      const themeClass = this._getThemeClass();
-      dialog.className = `message-dialog ${themeClass}`;
+      const isDark = this._config?.theme === "dark" || (this._config?.theme === "auto" && this._isDarkMode());
+      dialog.className = `message-dialog ${isDark ? "theme-dark" : "theme-light"}`;
       dialog.setAttribute("aria-labelledby", "message-dialog-title");
       dialog.innerHTML = `<div class="dialog-head"><h2 class="dialog-title" id="message-dialog-title">${this._text(title)}</h2><button class="dialog-close" type="button" data-action="close-message" aria-label="关闭消息">×</button></div><span class="dialog-category">${this._text(item._category)}</span>${body ? `<p class="dialog-body">${this._text(body)}</p>` : ""}${date ? `<div class="dialog-date">${this._text(date)}</div>` : ""}`;
       dialog.addEventListener("close", () => { this._openMessage = null; dialog.remove(); });
