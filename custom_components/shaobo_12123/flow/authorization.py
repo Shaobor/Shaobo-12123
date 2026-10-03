@@ -372,6 +372,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 try:
                     await client.async_fetch_overview()
+                except JiaoguanLoginRequiredError:
+                    # 若服务端对应车主的 12123 会话已过期失效，自动流转到抓包页面让用户输入新参数续期
+                    return await self.async_step_login()
                 except Exception:
                     pass
 
