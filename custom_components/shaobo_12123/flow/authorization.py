@@ -104,16 +104,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 raw_data = result.get("data") if isinstance(result, dict) else None
                 data: dict[str, Any] = raw_data if isinstance(raw_data, dict) else {}
                 access_token = str(data.get("access_token") or "").strip()
-                if not access_token and existing_access_token:
-                    access_token = existing_access_token
-                if access_token:
-                    self._authorization_code = existing_code
-                    self._backend_url = backend_url
-                    self._access_token = access_token
-                    self._ha_instance_id = ha_instance_id
-                    self._authorization_label = str(data.get("authorization_label") or existing_label or "12123")
-                    return await self.async_step_login()
+                if not access_token:
+                    raise JiaoguanAuthorizationError("未签发有效访问令牌")
+
+                self._authorization_code = existing_code
+                self._backend_url = backend_url
+                self._access_token = access_token
+                self._ha_instance_id = ha_instance_id
+                self._authorization_label = str(data.get("authorization_label") or existing_label or "12123")
+                return await self.async_step_login()
+            except JiaoguanAuthorizationError:
+                # 授权码不在授权中（无效、过期或已被解绑）：坚决禁止跳过，直接留在第1步并报错拦截！
+                errors["base"] = "invalid_authorization"
             except Exception:
+                # 仅在非授权问题（如纯网络超时）且已有 access_token 时作为网络降级容灾
                 if existing_access_token:
                     self._authorization_code = existing_code
                     self._backend_url = backend_url
@@ -233,7 +237,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             data=entry_data,
                         )
             except JiaoguanAuthorizationError:
-                errors["base"] = "login_failed"
+                errors["base"] = "invalid_authorization"
             except JiaoguanLoginRequiredError:
                 errors["base"] = "login_failed"
             except JiaoguanConnectionError:
