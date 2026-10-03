@@ -58,6 +58,33 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._sfzmhm: str | None = None
         self._ha_instance_id: str | None = None
         self._target_entry_id: str | None = None
+        self._server_accounts: list[dict[str, Any]] = []
+
+    def _parse_server_accounts(self, data: dict[str, Any]) -> list[dict[str, Any]]:
+        """从服务端返回提纯已在服务器上登录的 12123 车主账号列表。"""
+        accounts = []
+        raw_list = data.get("accounts")
+        if isinstance(raw_list, list):
+            for item in raw_list:
+                if isinstance(item, dict):
+                    sf = str(item.get("sfzmhm") or "").strip().upper()
+                    if sf:
+                        masked = str(item.get("sfzmhm_masked") or sf).strip().upper()
+                        disp = str(item.get("display_name") or masked).strip()
+                        accounts.append({
+                            "sfzmhm": sf,
+                            "sfzmhm_masked": masked,
+                            "display_name": disp,
+                        })
+        if not accounts and data.get("is_bound"):
+            bound_sf = str(data.get("bound_sfzmhm") or data.get("sfzmhm") or "").strip().upper()
+            if bound_sf:
+                accounts.append({
+                    "sfzmhm": bound_sf,
+                    "sfzmhm_masked": bound_sf,
+                    "display_name": bound_sf,
+                })
+        return accounts
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Step 1: Input authorization code and backend url."""
@@ -94,7 +121,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except Exception:
                 pass
 
-        # 如果已有授权码且首次进入，自动静默鉴权并直接跳过此步直达登录页面
+        # 如果已有授权码且首次进入，自动静默鉴权；检查服务器已有账号
         if user_input is None and existing_code:
             ha_instance_id = await instance_id.async_get(self.hass)
             backend_url = existing_backend_url or DEFAULT_BACKEND_URL
@@ -112,6 +139,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._access_token = access_token
                 self._ha_instance_id = ha_instance_id
                 self._authorization_label = str(data.get("authorization_label") or existing_label or "12123")
+                self._server_accounts = self._parse_server_accounts(data)
+
+                if self._server_accounts:
+                    return await self.async_step_select_account()
                 return await self.async_step_login()
             except JiaoguanAuthorizationError:
                 # 授权码不在授权中（无效、过期或已被解绑）：坚决禁止跳过，直接留在第1步并报错拦截！
@@ -145,6 +176,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._access_token = access_token
                 self._ha_instance_id = ha_instance_id
                 self._authorization_label = str(data.get("authorization_label") or "12123")
+                self._server_accounts = self._parse_server_accounts(data)
 
                 # 保存草稿以备后续使用
                 try:
@@ -153,8 +185,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except Exception:
                     pass
 
-                # 无论授权码是否已经绑定过账号，都进入登录步骤获取本次账号的完整身份证号。
-                # 同一个 Authorization 因而可以继续添加第二个或更多 12123 账号。
+                if self._server_accounts:
+                    return await self.async_step_select_account()
                 return await self.async_step_login()
             except JiaoguanAuthorizationError:
                 errors["base"] = "invalid_authorization"
@@ -172,6 +204,91 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(schema_dict),
+            errors=errors,
+        )
+
+    async def async_step_select_account(self, user_input: dict[str, Any] | None = None):
+        """Step 1.5: Select an existing logged-in account on server or bind a new one."""
+        errors: dict[str, str] = {}
+
+        # 收集当前 HA 实例所有已配置账号的特征（包含完整 sfzmhm 及脱敏掩码）
+        configured_ids = set()
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            sf_full = str(entry.data.get(CONF_SFZMHM_FULL) or entry.data.get(CONF_SFZMHM) or "").strip().upper()
+            if sf_full:
+                configured_ids.add(sf_full)
+                if len(sf_full) >= 15:
+                    configured_ids.add(f"{sf_full[:6]}********{sf_full[-4:]}")
+
+        account_options = {}
+        for acc in self._server_accounts:
+            sf = acc["sfzmhm"]
+            masked = acc["sfzmhm_masked"]
+            display = acc["display_name"]
+            is_added = (sf in configured_ids) or (masked in configured_ids)
+            label = f"{display} (已添加)" if is_added else display
+            account_options[sf] = label
+
+        account_options["__new_account__"] = "➕ 绑定新车主账号（录入抓包参数）"
+
+        if user_input is not None:
+            choice = str(user_input.get("selected_account") or "").strip()
+            if choice == "__new_account__":
+                return await self.async_step_login()
+
+            # 校验是否已经添加过
+            acc = next((a for a in self._server_accounts if a["sfzmhm"] == choice), None)
+            choice_masked = acc["sfzmhm_masked"] if acc else choice
+            if (choice in configured_ids) or (choice_masked in configured_ids):
+                errors["base"] = "account_already_configured"
+            else:
+                sfzmhm_to_use = choice
+                self._sfzmhm = sfzmhm_to_use
+
+                # 账号维度去重
+                account_unique_id = hashlib.sha256(
+                    f"{self._authorization_code}|{sfzmhm_to_use}".encode()
+                ).hexdigest()
+                await self.async_set_unique_id(account_unique_id)
+                self._abort_if_unique_id_configured()
+
+                client = JiaoguanApiClient(
+                    async_get_clientsession(self.hass),
+                    self._backend_url,
+                    self._access_token,
+                    sfzmhm_to_use,
+                )
+                try:
+                    await client.async_fetch_overview()
+                except Exception:
+                    pass
+
+                entry_data = {
+                    CONF_AUTHORIZATION_CODE: self._authorization_code,
+                    CONF_BACKEND_URL: self._backend_url,
+                    CONF_ACCESS_TOKEN: self._access_token,
+                    CONF_SFZMHM: sfzmhm_to_use,
+                    CONF_SFZMHM_FULL: sfzmhm_to_use,
+                    CONF_AUTHORIZATION_LABEL: self._authorization_label,
+                    CONF_HA_INSTANCE_ID: self._ha_instance_id,
+                }
+                title = acc.get("display_name") if acc else sfzmhm_to_use
+                return self.async_create_entry(
+                    title=title,
+                    data=entry_data,
+                )
+
+        default_choice = "__new_account__"
+        for sf, label in account_options.items():
+            if sf != "__new_account__" and "(已添加)" not in label:
+                default_choice = sf
+                break
+
+        return self.async_show_form(
+            step_id="select_account",
+            data_schema=vol.Schema({
+                vol.Required("selected_account", default=default_choice): vol.In(account_options),
+            }),
             errors=errors,
         )
 

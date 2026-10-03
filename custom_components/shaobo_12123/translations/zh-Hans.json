@@ -18,6 +18,13 @@
           "mobileSessionId": "会话 ID（mobileSessionId，响应头）",
           "token": "长效票据（token-，登录请求）"
         }
+      },
+      "select_account": {
+        "title": "选择 12123 车主账号",
+        "description": "检测到服务器已存在登录的 12123 车主账号。请选择直接接入，或绑定新的车主账号。",
+        "data": {
+          "selected_account": "车主账号"
+        }
       }
     },
     "error": {
@@ -25,7 +32,8 @@
       "sfzmhm_unavailable": "后端未返回完整车主身份证号，请先部署新版 12123-server 后重试。",
       "cannot_connect": "无法连接到后端，请检查后端网关地址和网络。",
       "unknown": "授权验证时发生未知错误。",
-      "login_failed": "登录参数无效、登录已失效，或后端未能保存会话。请提交新的登录抓包参数。"
+      "login_failed": "登录参数无效、登录已失效，或后端未能保存会话。请提交新的登录抓包参数。",
+      "account_already_configured": "该车主账号已在当前系统添加，请勿重复添加。"
     },
     "abort": {
       "already_configured": "此授权码或车主已在当前系统配置。",
