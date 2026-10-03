@@ -7,8 +7,10 @@ from urllib.parse import parse_qs, urlsplit
 
 from homeassistant.config_entries import ConfigEntry
 
+from ..const import VERSION
 from ..data.coordinator import JiaoguanDataUpdateCoordinator
 from .base import JiaoguanEntity
+
 
 
 class JiaoguanCategorySensor(JiaoguanEntity):
@@ -85,8 +87,11 @@ class JiaoguanCategorySensor(JiaoguanEntity):
         if self._category == "status":
             last_exception = getattr(self.coordinator, "last_exception", None)
             return {
+                "version": VERSION,
+                "版本": f"v{VERSION}",
                 "后端状态": self.native_value,
                 "最近一次更新成功": self.coordinator.last_update_success,
+
                 "最近一次错误": str(last_exception) if last_exception else None,
                 "数据更新时间": (
                     self.coordinator.last_data_update.isoformat()
@@ -218,6 +223,11 @@ def _valid_local_photo_urls(value: Any) -> list[str]:
         if not isinstance(raw_url, str):
             continue
         url = raw_url.strip()
-        if url.startswith("/12123-images/") or url in _valid_photo_urls([url]):
+        if (
+            url.startswith("/local/")
+            or url.startswith("/12123-images/")
+            or url in _valid_photo_urls([url])
+        ):
             result.append(url)
     return result
+

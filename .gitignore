@@ -40,3 +40,4 @@ ha
 *.bin
 *.hex
 *.ipa
+bump_version.py

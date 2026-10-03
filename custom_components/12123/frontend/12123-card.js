@@ -12,8 +12,9 @@
   // Custom element names must start with a letter; `12123-card` is rejected
   // by the browser before the card can even receive its configuration.
   const TAG = "ha-12123-card";
-  const VERSION = "3.1.0";
+  const VERSION = "3.2.0";
   const ENTITY_FIELDS = ["user_entity", "driver_entity", "vehicle_entity", "violation_entity", "business_entity", "service_entity", "status_entity"];
+
   const DEFAULTS = {
     title: "12123",
     icon: "https://brands.home-assistant.io/12123/icon.png",
@@ -510,7 +511,8 @@
       const address = item.wfdz || item.wfdd || "";
       const date = item.wfsj || item.time || "";
       const photoSource = this._asArray(item.local_photos).length ? item.local_photos : item.photos;
-      const photos = this._asArray(photoSource).filter((photo) => typeof photo === "string" && (/^https?:\/\//i.test(photo) || photo.startsWith("/12123-images/")));
+      const photos = this._asArray(photoSource).filter((photo) => typeof photo === "string" && (/^https?:\/\//i.test(photo) || photo.startsWith("/local/") || photo.startsWith("/12123-images/")));
+
       return `<div class="message"><div class="message-title">${this._text(title)}</div><div class="meta violation-meta">${date ? `<span>时间：<strong>${this._text(date)}</strong></span>` : ""}${address ? `<span>地点：<strong>${this._text(address)}</strong></span>` : ""}${item.fkje !== undefined ? `<span class="fine">罚款：<strong>${this._text(item.fkje)} 元</strong></span>` : ""}${item.wfjfs !== undefined ? `<span>记分：<strong>${this._text(item.wfjfs)} 分</strong></span>` : ""}</div>${photos.length ? `<div class="photos">${photos.map((photo, index) => `<a href="${this._attr(photo)}" target="_blank" rel="noreferrer"><img src="${this._attr(photo)}" alt="违章照片 ${index + 1}" loading="lazy" referrerpolicy="no-referrer"></a>`).join("")}</div>` : ""}</div>`;
     }
 
@@ -575,11 +577,14 @@
       const last = statusAttrs["数据更新时间"] || data.statusState.last_updated || data.violationState.last_updated || "";
       const interval = Number(statusAttrs["数据刷新间隔"]);
       const refreshText = Number.isFinite(interval) && interval > 0 ? ` · ${interval}分钟自动更新` : "";
+      const ver = statusAttrs["version"] || statusAttrs["版本"] || VERSION;
+      const displayVer = String(ver).startsWith("v") ? String(ver) : `v${ver}`;
       const label = last
         ? `数据更新 ${this._formatDate(last)}${refreshText}`
         : "数据由 12123 后端提供";
-      return `<div class="footer"><span class="footer-status">${this._text(label)}</span><span>v${VERSION}</span></div>`;
+      return `<div class="footer"><span class="footer-status">${this._text(label)}</span><span>${this._text(displayVer)}</span></div>`;
     }
+
 
     _handleClick(event) {
       const action = event.target.closest && event.target.closest("[data-action]");

@@ -1,11 +1,24 @@
-"""Constants for the 12123 integration."""
-
+import json
 import os
+from pathlib import Path
 from typing import Final
 
+
+def _load_version() -> str:
+    """Read the authoritative version from manifest.json."""
+    try:
+        manifest_path = Path(__file__).parent / "manifest.json"
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            return str(json.load(f).get("version", "3.2.0"))
+    except Exception:
+        return "3.2.0"
+
+
+VERSION: Final = _load_version()
 DOMAIN: Final = "12123"
 PLATFORMS: Final = ["sensor"]
 SERVICE_REFRESH_VIOLATIONS: Final = "refresh_violations"
+
 
 CONF_AUTHORIZATION_CODE: Final = "authorization_code"
 CONF_BACKEND_URL: Final = "backend_url"

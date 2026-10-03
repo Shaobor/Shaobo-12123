@@ -23,6 +23,7 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     SERVICE_REFRESH_VIOLATIONS,
+    VERSION,
 )
 from .data.coordinator import JiaoguanDataUpdateCoordinator
 from .storage import (
@@ -35,7 +36,8 @@ JiaoguanConfigEntry = ConfigEntry[JiaoguanDataUpdateCoordinator]
 
 _LOGGER = logging.getLogger(__name__)
 _CARD_URL = f"/{DOMAIN}/12123-card.js"
-_CARD_VERSION = "3.1.0"
+_CARD_VERSION = VERSION
+
 
 
 
@@ -84,8 +86,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.info("已注册 12123 前端卡片资源路径: /%s -> %s", DOMAIN, frontend_dir)
         except Exception as err:
             _LOGGER.warning("注册 12123 前端卡片资源路径失败: %s", err)
-    violation_image_dir = hass.config.path("12123", "violations")
+    violation_image_dir = hass.config.path("www", "12123")
     os.makedirs(violation_image_dir, exist_ok=True)
+
     if not domain_data.get("violation_image_static_path_registered"):
         try:
             await hass.http.async_register_static_paths([
@@ -93,6 +96,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             ])
             domain_data["violation_image_static_path_registered"] = True
             _LOGGER.info("已注册 12123 违章图片路径: /12123-images -> %s", violation_image_dir)
+
         except Exception as err:
             _LOGGER.warning("注册 12123 违章图片路径失败: %s", err)
     await _async_register_lovelace_resource(hass, f"{_CARD_URL}?v={_CARD_VERSION}")

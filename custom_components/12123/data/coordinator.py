@@ -7,7 +7,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
+import shutil
 from time import monotonic
+
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -91,9 +93,37 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._service_cache: dict[str, Any] | None = None
         self._last_message_fetch = 0.0
         self._force_violation_refresh = False
-        self._violation_image_dir = Path(hass.config.path("12123", "violations"))
+        self._violation_image_dir = Path(hass.config.path("www", "12123"))
         self._violation_image_dir.mkdir(parents=True, exist_ok=True)
+        self._migrate_legacy_violation_images(hass)
         self._last_data_update: datetime | None = None
+
+    def _migrate_legacy_violation_images(self, hass: HomeAssistant) -> None:
+        """Migrate any legacy photos from old paths directly into /config/www/12123/."""
+        legacy_dirs = [
+            Path(hass.config.path("12123", "violations")),
+            Path(hass.config.path("12123")),
+            Path(hass.config.path("www", "12123", "violations")),
+        ]
+        for legacy_dir in legacy_dirs:
+            if not legacy_dir.is_dir() or legacy_dir == self._violation_image_dir:
+                continue
+            for file in legacy_dir.glob("*.jpg"):
+                if not file.is_file():
+                    continue
+                target = self._violation_image_dir / file.name
+                if not target.exists():
+                    try:
+                        shutil.copy2(file, target)
+                    except Exception:
+                        pass
+            if legacy_dir.name == "violations":
+                try:
+                    shutil.rmtree(legacy_dir, ignore_errors=True)
+                except Exception:
+                    pass
+
+
 
     @property
     def scan_interval_minutes(self) -> int:
@@ -237,8 +267,10 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     local_photos.append(url)
                     continue
             if target.is_file() and target.stat().st_size > 0:
-                local_photos.append(f"/12123-images/{filename}")
+                local_photos.append(f"/local/12123/{filename}")
             else:
+
+
                 local_photos.append(url)
         violation["local_photos"] = local_photos
 
