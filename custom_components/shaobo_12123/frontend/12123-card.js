@@ -632,7 +632,7 @@
     window.customCards.push({
       type: TAG,
       name: "12123",
-      description: "交管 12123 用户、驾驶证、车辆、违章与消息面板",
+      description: "12123 用户、驾驶证、车辆、违章与消息面板",
       preview: false,
     });
   }

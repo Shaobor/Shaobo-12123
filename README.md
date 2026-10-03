@@ -1,14 +1,14 @@
 <div align="center">
 
-# 🚗 交管 12123 (Shaobo 12123)
+# 🚗 12123 (Shaobo 12123)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/default)
 [![version](https://img.shields.io/badge/Version-2.9.18-blue.svg?style=for-the-badge)](https://github.com/Shaobor/Shaobor-12123)
 [![license](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home--Assistant-2026.1%2B-blueviolet.svg?style=for-the-badge)](https://www.home-assistant.io/)
 
-**专为 Home Assistant 打造的交管 12123 官方品质数据监控与管理集成**  
-深度接入公安部交管 12123 服务体系，实时监控驾驶证记分、机动车状态、检验有效期、未处理违法违章及官方业务提醒通知。
+**专为 Home Assistant 打造的 12123 官方品质数据监控与管理集成**  
+实时监控驾驶证记分、机动车状态、检验有效期、未处理违法违章及业务提醒通知。
 
 [✨ 特性亮点](#-特性亮点) • [📊 传感器实体清单](#-传感器实体清单) • [🎴 12123 面板卡片](#-12123-面板卡片) • [🚀 安装与配置](#-安装与配置) • [📄 许可证](#-许可证)
 
@@ -55,7 +55,7 @@
 
 ```yaml
 type: custom:ha-12123-card
-title: 交管12123
+title: 12123
 size: large
 ```
 
@@ -73,7 +73,7 @@ size: large
 1. 打开 Home Assistant 的 **HACS** -> **Integrations**。
 2. 点击右上角菜单中的 **Custom repositories（自定义存储库）**。
 3. 填入本仓库地址，类别选择 **Integration（集成）**。
-4. 在列表中搜索 **交管12123** 并点击下载安装，随后重启 Home Assistant。
+4. 在列表中搜索 **12123** 并点击下载安装，随后重启 Home Assistant。
 
 ### 方式二：手动安装
 1. 下载本项目发布包中的 `custom_components/shaobo_12123` 文件夹。
@@ -85,7 +85,7 @@ size: large
 
 ### 配置流程
 1. 进入 Home Assistant **设置 -> 设备与服务 -> 添加集成**。
-2. 搜索并选择 **交管12123**（`shaobo_12123`）。
+2. 搜索并选择 **12123**（`shaobo_12123`）。
 3. 输入您的专属授权码，系统将自动绑定当前 HA 实例的机器码并获取访问凭据。
 4. 若授权码尚未录入车主会话，系统会引导输入抓包登录凭据完成首次绑定。
 

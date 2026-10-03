@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""交管12123专属存储模块 (.storage/Shaobo_12123)"""
+"""12123专属存储模块 (.storage/Shaobo_12123)"""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ async def async_save_12123_account(
     sfzmhm: str,
     account_data: dict[str, Any],
 ) -> None:
-    """保存或更新交管12123凭据与数据到专属存储文件 (.storage/Shaobo_12123)"""
+    """保存或更新 12123 凭据与数据到专属存储文件 (.storage/Shaobo_12123)"""
     store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     data = await store.async_load() or {}
     existing = data.get(sfzmhm) or {}
@@ -33,11 +33,11 @@ async def async_save_12123_account(
         "sfzmhm": sfzmhm,
     }
     await store.async_save(data)
-    _LOGGER.info("已将身份证 %s 的交管数据同步写入 .storage/%s", sfzmhm, STORAGE_KEY)
+    _LOGGER.info("已将身份证 %s 的 12123 数据同步写入 .storage/%s", sfzmhm, STORAGE_KEY)
 
 
 async def async_load_12123_accounts(hass: HomeAssistant) -> dict[str, Any]:
-    """读取专属存储文件中的所有交管12123账号数据"""
+    """读取专属存储文件中的所有 12123 账号数据"""
     store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     return await store.async_load() or {}
 
