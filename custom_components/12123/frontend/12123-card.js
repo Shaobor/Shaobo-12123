@@ -12,27 +12,27 @@
   // Custom element names must start with a letter; `12123-card` is rejected
   // by the browser before the card can even receive its configuration.
   const TAG = "ha-12123-card";
-  const VERSION = "3.2.0";
+  const VERSION = "3.2.1";
   const ENTITY_FIELDS = ["user_entity", "driver_entity", "vehicle_entity", "violation_entity", "business_entity", "service_entity", "status_entity"];
 
   const DEFAULTS = {
     title: "12123",
     icon: "https://brands.home-assistant.io/12123/icon.png",
-    theme: "light",
+    theme: "auto",
   };
 
   const CSS = `
     :host { display:block; }
     * { box-sizing:border-box; }
     .card {
-      /* 对齐《掌上运营商》的白透质感与高对比度文字 */
-      --card-bg: var(--12123-card-background, rgba(255, 255, 255, 0.82));
-      --card-border: var(--12123-card-border, rgba(0, 0, 0, 0.08));
-      --card-radius: var(--12123-card-radius, 16px);
-      --card-shadow: var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.1));
+      /* 支持跟随 Home Assistant 主题变量与毛玻璃质感 */
+      --card-bg: var(--ha-card-background, var(--card-background-color, var(--12123-card-background, rgba(255, 255, 255, 0.82))));
+      --card-border: var(--ha-card-border-color, var(--12123-card-border, rgba(0, 0, 0, 0.08)));
+      --card-radius: var(--ha-card-border-radius, var(--12123-card-radius, 16px));
+      --card-shadow: var(--ha-card-box-shadow, var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.1)));
       --card-hover-shadow: var(--12123-card-hover-shadow, 0 12px 38px rgba(0, 0, 0, 0.15));
-      --text-primary: #2c3e50;
-      --text-secondary: #7f8c8d;
+      --text-primary: var(--primary-text-color, #2c3e50);
+      --text-secondary: var(--secondary-text-color, #7f8c8d);
       --text-sub: #9e9e9e;
       --panel-bg: rgba(255, 255, 255, 0.65);
       --panel-border: rgba(0, 0, 0, 0.06);
@@ -60,12 +60,12 @@
     .card:hover { box-shadow:var(--card-hover-shadow); }
 
     .card.theme-dark {
-      --card-bg: var(--12123-card-background, rgba(30, 32, 38, 0.85));
-      --card-border: var(--12123-card-border, rgba(255, 255, 255, 0.1));
-      --card-shadow: var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.4));
+      --card-bg: var(--ha-card-background, var(--card-background-color, var(--12123-card-background, rgba(30, 32, 38, 0.85))));
+      --card-border: var(--ha-card-border-color, var(--12123-card-border, rgba(255, 255, 255, 0.1)));
+      --card-shadow: var(--ha-card-box-shadow, var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.4)));
       --card-hover-shadow: var(--12123-card-hover-shadow, 0 12px 38px rgba(0, 0, 0, 0.5));
-      --text-primary: rgba(255, 255, 255, 0.9);
-      --text-secondary: rgba(255, 255, 255, 0.6);
+      --text-primary: var(--primary-text-color, rgba(255, 255, 255, 0.9));
+      --text-secondary: var(--secondary-text-color, rgba(255, 255, 255, 0.6));
       --text-sub: rgba(255, 255, 255, 0.4);
       --panel-bg: rgba(255, 255, 255, 0.06);
       --panel-border: rgba(255, 255, 255, 0.08);
@@ -78,6 +78,29 @@
       --hero-bg: linear-gradient(135deg, rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.04));
       --hero-border: rgba(255, 255, 255, 0.08);
       --dialog-bg: rgba(30, 32, 38, 0.98);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .card.theme-auto {
+        --card-bg: var(--ha-card-background, var(--card-background-color, var(--12123-card-background, rgba(30, 32, 38, 0.85))));
+        --card-border: var(--ha-card-border-color, var(--12123-card-border, rgba(255, 255, 255, 0.1)));
+        --card-shadow: var(--ha-card-box-shadow, var(--12123-card-shadow, 0 8px 32px rgba(0, 0, 0, 0.4)));
+        --card-hover-shadow: var(--12123-card-hover-shadow, 0 12px 38px rgba(0, 0, 0, 0.5));
+        --text-primary: var(--primary-text-color, rgba(255, 255, 255, 0.9));
+        --text-secondary: var(--secondary-text-color, rgba(255, 255, 255, 0.6));
+        --text-sub: rgba(255, 255, 255, 0.4);
+        --panel-bg: rgba(255, 255, 255, 0.06);
+        --panel-border: rgba(255, 255, 255, 0.08);
+        --panel-shadow: none;
+        --tab-bg: rgba(255, 255, 255, 0.07);
+        --tab-hover-bg: rgba(33, 150, 243, 0.2);
+        --tab-active-bg: rgba(33, 150, 243, 0.25);
+        --tab-active-text: #64b5f6;
+        --tab-active-border: rgba(33, 150, 243, 0.35);
+        --hero-bg: linear-gradient(135deg, rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.04));
+        --hero-border: rgba(255, 255, 255, 0.08);
+        --dialog-bg: rgba(30, 32, 38, 0.98);
+      }
     }
 
     .card.large .hero { gap:16px; padding:20px 22px 18px; }
@@ -189,16 +212,25 @@
     .message-title { color:var(--text-primary); font-size:13px; font-weight:600; line-height:1.45; }
     .message-body { color:var(--text-secondary); margin-top:4px; font-size:11.5px; line-height:1.45; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
 
-    .message-dialog { width:min(520px,calc(100vw - 32px)); max-height:min(80vh,720px); padding:22px; border:1px solid var(--panel-border); border-radius:18px; background:var(--dialog-bg); color:var(--text-primary); box-shadow:0 18px 48px rgba(0,0,0,.25); overflow:auto; }
-    .message-dialog::backdrop { background:rgba(0,0,0,.48); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
-    .dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    .dialog-title { margin:0; font-size:18px; font-weight:650; line-height:1.4; color:var(--text-primary); }
-    .dialog-close { flex:none; display:grid; place-items:center; width:30px; height:30px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.06); color:var(--text-secondary); font:inherit; font-size:20px; line-height:1; cursor:pointer; }
-    .dialog-close:hover { background:rgba(0,0,0,.1); color:var(--text-primary); }
-    .dialog-close:focus-visible { outline:2px solid #2196f3; outline-offset:2px; }
-    .dialog-category { display:inline-block; margin-top:9px; padding:3px 9px; border-radius:999px; background:rgba(33,150,243,.12); color:#1565c0; font-size:11.5px; font-weight:500; }
-    .dialog-body { margin:16px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.65; font-size:13.5px; color:var(--text-primary); }
-    .dialog-date { margin-top:16px; color:var(--text-secondary); font-size:11.5px; }
+    .message-dialog { position:fixed; inset:0; margin:auto; width:min(520px,calc(100vw - 32px)); max-height:min(80vh,720px); padding:24px; border:1px solid rgba(0,0,0,.08); border-radius:20px; background:#ffffff !important; background-color:#ffffff !important; color:#2c3e50; box-shadow:0 24px 60px rgba(0,0,0,.28), 0 4px 16px rgba(0,0,0,.08); overflow:auto; box-sizing:border-box; font-family:var(--paper-font-body1_-_font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", PingFang SC, Microsoft YaHei, sans-serif); }
+    .message-dialog::backdrop { background:rgba(0,0,0,.65); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+    .message-dialog .dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .message-dialog .dialog-title { margin:0; font-size:18px; font-weight:700; line-height:1.4; color:#2c3e50; }
+    .message-dialog .dialog-close { flex:none; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:rgba(0,0,0,.06); color:#7f8c8d; font:inherit; font-size:20px; line-height:1; cursor:pointer; transition:background .18s ease,color .18s ease; }
+    .message-dialog .dialog-close:hover { background:rgba(0,0,0,.12); color:#2c3e50; }
+    .message-dialog .dialog-close:focus-visible { outline:2px solid #2196f3; outline-offset:2px; }
+    .message-dialog .dialog-category { display:inline-block; margin-top:10px; padding:4px 10px; border-radius:999px; background:rgba(33,150,243,.12); color:#1565c0; font-size:11.5px; font-weight:600; }
+    .message-dialog .dialog-body { margin:16px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.7; font-size:13.5px; color:#34495e; }
+    .message-dialog .dialog-date { margin-top:16px; color:#7f8c8d; font-size:11.5px; }
+
+    .message-dialog.theme-dark { border:1px solid rgba(255,255,255,.12); background:#1e2026 !important; background-color:#1e2026 !important; color:rgba(255,255,255,.95); box-shadow:0 24px 60px rgba(0,0,0,.75), 0 4px 16px rgba(0,0,0,.5); }
+    .message-dialog.theme-dark::backdrop { background:rgba(0,0,0,.75); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+    .message-dialog.theme-dark .dialog-title { color:rgba(255,255,255,.95); }
+    .message-dialog.theme-dark .dialog-close { background:rgba(255,255,255,.12); color:rgba(255,255,255,.75); }
+    .message-dialog.theme-dark .dialog-close:hover { background:rgba(255,255,255,.22); color:#ffffff; }
+    .message-dialog.theme-dark .dialog-category { background:rgba(33,150,243,.25); color:#64b5f6; }
+    .message-dialog.theme-dark .dialog-body { color:rgba(255,255,255,.88); }
+    .message-dialog.theme-dark .dialog-date { color:rgba(255,255,255,.5); }
 
     .message-filter { display:flex; gap:6px; margin:0 2px 9px; overflow-x:auto; scrollbar-width:none; }
     .message-filter::-webkit-scrollbar { display:none; }
@@ -252,9 +284,9 @@
             { value: "normal", label: "标准尺寸" },
           ], mode: "dropdown" } } },
           { name: "theme", selector: { select: { options: [
-            { value: "light", label: "浅色通透（默认，对齐掌上运营商）" },
-            { value: "auto", label: "跟随系统 / 仪表盘" },
+            { value: "auto", label: "跟随系统 / 仪表盘（默认）" },
             { value: "dark", label: "深色毛玻璃" },
+            { value: "light", label: "浅色通透" },
           ], mode: "dropdown" } } },
           ...ENTITY_FIELDS.map((name) => ({ name, selector: entitySelector })),
         ],
@@ -266,7 +298,7 @@
       return {
         title: DEFAULTS.title,
         size: "large",
-        theme: "light",
+        theme: "auto",
       };
     }
 
@@ -315,13 +347,27 @@
       if (!this._themeMediaHandler && typeof window !== "undefined" && window.matchMedia) {
         this._themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
         this._themeMediaHandler = () => {
-          if (this._config?.theme === "auto") this._render();
+          if (this._config?.theme === "auto") {
+            this._signature = "";
+            this._render();
+          }
         };
         try {
           this._themeMedia.addEventListener("change", this._themeMediaHandler);
         } catch (_) {
           this._themeMedia.addListener?.(this._themeMediaHandler);
         }
+      }
+      if (!this._themeEventHandler && typeof window !== "undefined") {
+        this._themeEventHandler = () => {
+          if (this._config?.theme === "auto") {
+            this._signature = "";
+            this._render();
+          }
+        };
+        window.addEventListener("settheme", this._themeEventHandler);
+        window.addEventListener("themes-updated", this._themeEventHandler);
+        window.addEventListener("hass-theme-changed", this._themeEventHandler);
       }
     }
 
@@ -337,18 +383,88 @@
         }
         this._themeMediaHandler = null;
       }
+      if (this._themeEventHandler && typeof window !== "undefined") {
+        window.removeEventListener("settheme", this._themeEventHandler);
+        window.removeEventListener("themes-updated", this._themeEventHandler);
+        window.removeEventListener("hass-theme-changed", this._themeEventHandler);
+        this._themeEventHandler = null;
+      }
     }
 
     getCardSize() { return 6; }
 
-    _getThemeClass() {
-      const mode = this._config?.theme || "light";
-      if (mode === "dark") return "theme-dark";
-      if (mode === "light") return "theme-light";
-      if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        return "theme-dark";
+    _isColorLight(color) {
+      if (!color) return false;
+      color = String(color).trim();
+      let r = 0, g = 0, b = 0;
+      if (color.startsWith("#")) {
+        const hex = color.slice(1);
+        if (hex.length === 3) {
+          r = parseInt(hex[0] + hex[0], 16) || 0;
+          g = parseInt(hex[1] + hex[1], 16) || 0;
+          b = parseInt(hex[2] + hex[2], 16) || 0;
+        } else if (hex.length >= 6) {
+          r = parseInt(hex.slice(0, 2), 16) || 0;
+          g = parseInt(hex.slice(2, 4), 16) || 0;
+          b = parseInt(hex.slice(4, 6), 16) || 0;
+        }
+      } else if (color.includes("(")) {
+        const parts = color.match(/[\d.]+/g);
+        if (parts && parts.length >= 3) {
+          r = parseFloat(parts[0]) || 0;
+          g = parseFloat(parts[1]) || 0;
+          b = parseFloat(parts[2]) || 0;
+        }
+      } else {
+        return false;
       }
-      return "theme-light";
+      return (r * 299 + g * 587 + b * 114) / 1000 > 130;
+    }
+
+    _isDarkMode() {
+      const mode = this._config?.theme || "auto";
+      if (mode === "dark") return true;
+      if (mode === "light") return false;
+
+      // 1. Home Assistant 的核心状态检测
+      if (this._hass) {
+        if (this._hass.themes?.darkMode === true) return true;
+        if (this._hass.themes?.darkMode === false) return false;
+        const selectedTheme = String(this._hass.selectedTheme || this._hass.themes?.theme || "").toLowerCase();
+        if (selectedTheme.includes("dark") || selectedTheme.includes("night") || selectedTheme.includes("black")) {
+          return true;
+        }
+      }
+
+      // 2. Home Assistant DOM 树属性检测
+      if (typeof document !== "undefined") {
+        if (document.documentElement.classList.contains("dark") || document.documentElement.getAttribute("data-theme") === "dark") return true;
+        if (document.body && (document.body.classList.contains("dark") || document.body.getAttribute("data-theme") === "dark")) return true;
+        const ha = document.querySelector("home-assistant");
+        if (ha && (ha.hasAttribute("dark") || ha.classList.contains("dark"))) return true;
+      }
+
+      // 3. 从宿主或全局计算样式检测当前主题的文字和背景颜色
+      try {
+        const host = this.shadowRoot?.host || this;
+        if (host && typeof window !== "undefined" && window.getComputedStyle) {
+          const style = window.getComputedStyle(host);
+          const textColor = style.getPropertyValue("--primary-text-color").trim();
+          if (textColor && this._isColorLight(textColor)) return true;
+          const cardBg = style.getPropertyValue("--ha-card-background").trim();
+          if (cardBg && !this._isColorLight(cardBg)) return true;
+        }
+      } catch (_) {}
+
+      // 4. 系统级 prefers-color-scheme 检测
+      if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        return true;
+      }
+      return false;
+    }
+
+    _getThemeClass() {
+      return this._isDarkMode() ? "theme-dark" : "theme-light";
     }
 
     _state(entityId) {
@@ -359,10 +475,15 @@
 
     _makeSignature() {
       if (!this._hass || !this._config) return "";
-      return ENTITY_FIELDS.map((key) => {
+      const isDark = this._isDarkMode();
+      const themeConfig = this._config.theme || "auto";
+      const haDark = this._hass.themes?.darkMode ?? "";
+      const haTheme = this._hass.selectedTheme || this._hass.themes?.theme || "";
+      const entitySig = ENTITY_FIELDS.map((key) => {
         const state = this._state(this._config[key]);
         return `${this._config[key]}:${state.state}:${state.last_changed || ""}:${state.last_updated || ""}`;
       }).join("|");
+      return `${entitySig}#theme:${themeConfig}:${isDark ? "dark" : "light"}:${haDark}:${haTheme}`;
     }
 
     _data() {
@@ -393,7 +514,8 @@
       const card = document.createElement("div");
       const sizeClass = this._config.size === "large" ? " large" : "";
       const themeClass = this._getThemeClass();
-      card.className = `card${sizeClass} ${themeClass}`;
+      const themeMode = this._config.theme || "auto";
+      card.className = `card${sizeClass} ${themeClass} theme-${themeMode}`;
       card.innerHTML = ENTITY_FIELDS.some((key) => this._config[key])
         ? this._renderHero(data) + this._renderTabs() + `<div class="content">${this._renderTabContent(data)}${this._renderFooter(data)}</div>`
         : `<div class="content"><div class="empty">请在卡片配置中选择 12123 传感器实体</div></div>`;
@@ -554,7 +676,8 @@
       const body = item.content || item.nr || item.xxnr || item.description || "";
       const date = item.time || item.fssj || item.create_time || item.date || "";
       const dialog = document.createElement("dialog");
-      dialog.className = "message-dialog";
+      const themeClass = this._getThemeClass();
+      dialog.className = `message-dialog ${themeClass}`;
       dialog.setAttribute("aria-labelledby", "message-dialog-title");
       dialog.innerHTML = `<div class="dialog-head"><h2 class="dialog-title" id="message-dialog-title">${this._text(title)}</h2><button class="dialog-close" type="button" data-action="close-message" aria-label="关闭消息">×</button></div><span class="dialog-category">${this._text(item._category)}</span>${body ? `<p class="dialog-body">${this._text(body)}</p>` : ""}${date ? `<div class="dialog-date">${this._text(date)}</div>` : ""}`;
       dialog.addEventListener("close", () => { this._openMessage = null; dialog.remove(); });
