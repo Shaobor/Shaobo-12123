@@ -62,6 +62,29 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Step 1: Input authorization code and backend url."""
         errors: dict[str, str] = {}
+
+        # 自动提取现有条目或专属存储中的授权码作为默认预填值
+        existing_code = ""
+        for existing in self.hass.config_entries.async_entries(DOMAIN):
+            code = existing.data.get(CONF_AUTHORIZATION_CODE)
+            if code:
+                existing_code = str(code).strip()
+                break
+        if not existing_code:
+            try:
+                from ..storage import async_load_12123_accounts, AuthorizationDraftStore
+                draft = await AuthorizationDraftStore(self.hass).async_load()
+                if draft and draft.get("authorization_code"):
+                    existing_code = str(draft["authorization_code"]).strip()
+                else:
+                    accounts = await async_load_12123_accounts(self.hass)
+                    for acc in accounts.values():
+                        if isinstance(acc, dict) and acc.get(CONF_AUTHORIZATION_CODE):
+                            existing_code = str(acc[CONF_AUTHORIZATION_CODE]).strip()
+                            break
+            except Exception:
+                pass
+
         if user_input is not None:
             auth_code = str(user_input.get(CONF_AUTHORIZATION_CODE) or "").strip()
             backend_url = DEFAULT_BACKEND_URL
@@ -82,6 +105,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._ha_instance_id = ha_instance_id
                 self._authorization_label = str(data.get("authorization_label") or "12123")
 
+                # 保存草稿以备后续使用
+                try:
+                    from ..storage import AuthorizationDraftStore
+                    await AuthorizationDraftStore(self.hass).async_save(auth_code)
+                except Exception:
+                    pass
+
                 # 无论授权码是否已经绑定过账号，都进入登录步骤获取本次账号的完整身份证号。
                 # 同一个 Authorization 因而可以继续添加第二个或更多 12123 账号。
                 return await self.async_step_login()
@@ -92,11 +122,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except Exception:
                 errors["base"] = "unknown"
 
+        schema_dict: dict[Any, Any] = {}
+        if existing_code:
+            schema_dict[vol.Required(CONF_AUTHORIZATION_CODE, default=existing_code)] = str
+        else:
+            schema_dict[vol.Required(CONF_AUTHORIZATION_CODE)] = str
+
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_AUTHORIZATION_CODE): str,
-            }),
+            data_schema=vol.Schema(schema_dict),
             errors=errors,
         )
 
