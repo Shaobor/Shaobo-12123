@@ -12,7 +12,7 @@
   // Custom element names must start with a letter; `12123-card` is rejected
   // by the browser before the card can even receive its configuration.
   const TAG = "ha-12123-card";
-  const VERSION = "3.2.2";
+  const VERSION = "3.2.3";
   const ENTITY_FIELDS = ["user_entity", "driver_entity", "vehicle_entity", "violation_entity", "business_entity", "service_entity", "status_entity"];
 
   const DEFAULTS = {

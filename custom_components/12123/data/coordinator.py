@@ -207,9 +207,19 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "business_notices": self._business_cache or {"data": []},
                 "service_reminders": self._service_cache or {"data": []},
             }
-        except (JiaoguanAuthorizationError, JiaoguanLoginRequiredError) as err:
+        except JiaoguanAuthorizationError as err:
+            # 只有 HA/API Authorization 本身无效时才要求重新认证。
+            # 官方 12123 会话短暂失效时，服务端会返回 need_login，并由
+            # proxy_relay 尝试静默换票；换票失败只是本轮数据不可用，不能
+            # 把整个 HA 配置条目标记成“授权过期”。否则一次官方网关抖动
+            # 就会触发误导性的重新认证流程。
             self._reset_poll_interval()
             raise ConfigEntryAuthFailed(str(err)) from err
+        except JiaoguanLoginRequiredError as err:
+            # 保留条目并等待下一轮自动刷新。DataUpdateCoordinator 会把
+            # UpdateFailed 记录为更新错误，而不会破坏现有授权配置。
+            self._reset_poll_interval()
+            raise UpdateFailed(f"官方 12123 会话暂时不可用，稍后将自动重试：{err}") from err
         except JiaoguanApiError as err:
             self._reset_poll_interval()
             raise UpdateFailed(str(err)) from err
