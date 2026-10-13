@@ -5,12 +5,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from typing import Any
 
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import entity_registry as er
+
+try:
+    from homeassistant.components.http import StaticPathConfig
+except ImportError:
+    StaticPathConfig = None
 
 from .client.api import JiaoguanApiClient
 from .const import (
@@ -32,13 +37,14 @@ from .storage import (
     async_save_12123_account,
 )
 
-JiaoguanConfigEntry = ConfigEntry[JiaoguanDataUpdateCoordinator]
+try:
+    JiaoguanConfigEntry = ConfigEntry[JiaoguanDataUpdateCoordinator]
+except TypeError:
+    JiaoguanConfigEntry = ConfigEntry  # type: ignore[misc]
 
 _LOGGER = logging.getLogger(__name__)
 _CARD_URL = f"/{DOMAIN}/12123-card.js"
 _CARD_VERSION = VERSION
-
-
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> None:
@@ -68,7 +74,7 @@ async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> No
             _LOGGER.debug("已移除重复的 12123 卡片资源: %s", item_url)
         if keep_url != url:
             await resources.async_update_item(keep_id, {"res_type": "module", "url": url})
-    except Exception as err:  # 资源登记失败不应阻止集成加载
+    except Exception as err:
         _LOGGER.debug("自动注册 12123 Lovelace Resource 失败(可手动添加): %s", err)
 
 
@@ -78,28 +84,40 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
     if os.path.isdir(frontend_dir) and not domain_data.get("static_paths_registered"):
         try:
-            await hass.http.async_register_static_paths([
-                StaticPathConfig(f"/{DOMAIN}", frontend_dir, cache_headers=False),
-                StaticPathConfig("/12123", frontend_dir, cache_headers=False),
-            ])
+            if StaticPathConfig is not None:
+                await hass.http.async_register_static_paths([
+                    StaticPathConfig(f"/{DOMAIN}", frontend_dir, cache_headers=False),
+                    StaticPathConfig("/12123", frontend_dir, cache_headers=False),
+                ])
+            else:
+                hass.http.register_static_path(f"/{DOMAIN}", frontend_dir, cache_headers=False)
+                hass.http.register_static_path("/12123", frontend_dir, cache_headers=False)
             domain_data["static_paths_registered"] = True
             _LOGGER.info("已注册 12123 前端卡片资源路径: /%s -> %s", DOMAIN, frontend_dir)
         except Exception as err:
             _LOGGER.warning("注册 12123 前端卡片资源路径失败: %s", err)
+
     violation_image_dir = hass.config.path("www", "12123")
-    os.makedirs(violation_image_dir, exist_ok=True)
+    try:
+        os.makedirs(violation_image_dir, exist_ok=True)
+    except Exception as err:
+        _LOGGER.debug("创建违章图片目录异常: %s", err)
 
     if not domain_data.get("violation_image_static_path_registered"):
         try:
-            await hass.http.async_register_static_paths([
-                StaticPathConfig("/12123-images", violation_image_dir, cache_headers=True)
-            ])
+            if StaticPathConfig is not None:
+                await hass.http.async_register_static_paths([
+                    StaticPathConfig("/12123-images", violation_image_dir, cache_headers=True)
+                ])
+            else:
+                hass.http.register_static_path("/12123-images", violation_image_dir, cache_headers=True)
             domain_data["violation_image_static_path_registered"] = True
             _LOGGER.info("已注册 12123 违章图片路径: /12123-images -> %s", violation_image_dir)
-
         except Exception as err:
             _LOGGER.warning("注册 12123 违章图片路径失败: %s", err)
+
     await _async_register_lovelace_resource(hass, f"{_CARD_URL}?v={_CARD_VERSION}")
+
     if not domain_data.get("refresh_service_registered"):
         async def _handle_refresh(call: ServiceCall) -> None:
             await _async_refresh_violations(hass, call)
@@ -110,6 +128,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _handle_refresh,
         )
         domain_data["refresh_service_registered"] = True
+
     return True
 
 
@@ -129,21 +148,38 @@ async def _async_refresh_violations(hass: HomeAssistant, call: ServiceCall) -> N
                 target_entry_ids.add(registered.config_entry_id)
 
     refresh_tasks = []
+    domain_data = hass.data.get(DOMAIN, {})
     for entry in hass.config_entries.async_entries(DOMAIN):
         if target_entry_ids and entry.entry_id not in target_entry_ids:
             continue
-        coordinator = entry.runtime_data
+        coordinator: JiaoguanDataUpdateCoordinator | None = (
+            getattr(entry, "runtime_data", None)
+            or domain_data.get(entry.entry_id)
+        )
         if coordinator is None:
             continue
         coordinator.async_force_violation_refresh()
         refresh_tasks.append(coordinator.async_request_refresh())
+
     if refresh_tasks:
-        await asyncio.gather(*refresh_tasks)
+        await asyncio.gather(*refresh_tasks, return_exceptions=True)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> None:
     """Reload the coordinator after the polling option changes."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _mask_name(name: str) -> str:
+    """车主姓名脱敏：2字脱敏为'小*'，3字脱敏为'李*明'，4字及以上脱敏为'欧**雪'。"""
+    name = (name or "").strip()
+    if not name:
+        return ""
+    if len(name) == 1:
+        return name
+    if len(name) == 2:
+        return f"{name[0]}*"
+    return f"{name[0]}{'*' * (len(name) - 2)}{name[-1]}"
 
 
 def _mask_phone(value: object) -> str | None:
@@ -162,18 +198,35 @@ def _mask_id_card(value: object) -> str | None:
     return id_card or None
 
 
+def _mask_display_name(disp: str = "", name: str = "", sf: str = "") -> str:
+    """格式化展示名称：带脱敏姓名与脱敏身份证号。"""
+    masked_sf = _mask_id_card(sf) or sf
+    if name:
+        m_name = _mask_name(name)
+        return f"{m_name} ({masked_sf})" if masked_sf else m_name
+    return disp or masked_sf or ""
+
+
 def _update_entry_title(
     hass: HomeAssistant,
     entry: JiaoguanConfigEntry,
     coordinator: JiaoguanDataUpdateCoordinator,
 ) -> None:
     """Name the entry after the current account without exposing raw PII."""
-    overview = coordinator.data.get("overview", {})
+    overview = coordinator.data.get("overview", {}) if isinstance(coordinator.data, dict) else {}
     user_info = overview.get("user_info") or {}
-    identity = _mask_id_card(user_info.get("sfzmhm")) or _mask_phone(user_info.get("sjhm"))
-    if identity:
-        if entry.title != identity:
-            hass.config_entries.async_update_entry(entry, title=identity)
+    xm = str(user_info.get("xm") or "").strip()
+    sf = str(user_info.get("sfzmhm") or "").strip()
+
+    if xm or sf:
+        display_title = _mask_display_name("", xm, sf)
+        if display_title and entry.title != display_title:
+            hass.config_entries.async_update_entry(entry, title=display_title)
+            return
+
+    identity = _mask_id_card(sf) or _mask_phone(user_info.get("sjhm"))
+    if identity and entry.title != identity:
+        hass.config_entries.async_update_entry(entry, title=identity)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> bool:
@@ -186,19 +239,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> 
     )
     coordinator = JiaoguanDataUpdateCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
-    entry.runtime_data = coordinator
+
+    # 兼容支持老版本与新版本 HA 的 runtime_data
+    if hasattr(entry, "runtime_data"):
+        entry.runtime_data = coordinator
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+
     _update_entry_title(hass, entry, coordinator)
 
     # 同步持久化写入专属存储 .storage/Shaobo_12123
     sfzmhm = entry.data.get(CONF_SFZMHM_FULL) or entry.data.get(CONF_SFZMHM)
     if sfzmhm:
-        await async_save_12123_account(hass, sfzmhm, {
-            CONF_AUTHORIZATION_CODE: entry.data.get(CONF_AUTHORIZATION_CODE),
-            CONF_ACCESS_TOKEN: entry.data.get(CONF_ACCESS_TOKEN),
-            CONF_BACKEND_URL: entry.data.get(CONF_BACKEND_URL),
-            "title": entry.title,
-            "metrics": coordinator.data.get("overview") if isinstance(coordinator.data, dict) else {},
-        })
+        try:
+            await async_save_12123_account(hass, sfzmhm, {
+                CONF_AUTHORIZATION_CODE: entry.data.get(CONF_AUTHORIZATION_CODE),
+                CONF_ACCESS_TOKEN: entry.data.get(CONF_ACCESS_TOKEN),
+                CONF_BACKEND_URL: entry.data.get(CONF_BACKEND_URL),
+                "title": entry.title,
+                "metrics": coordinator.data.get("overview") if isinstance(coordinator.data, dict) else {},
+            })
+        except Exception as save_err:
+            _LOGGER.debug("专属存储持久化提示: %s", save_err)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -207,18 +268,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> bool:
     """Unload platforms."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        domain_data = hass.data.get(DOMAIN)
+        if isinstance(domain_data, dict):
+            domain_data.pop(entry.entry_id, None)
+    return unload_ok
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> None:
     """Remove the saved authorization draft and account storage when the integration is deleted."""
     sfzmhm = entry.data.get(CONF_SFZMHM_FULL) or entry.data.get(CONF_SFZMHM)
     if sfzmhm:
-        await async_remove_12123_account(hass, sfzmhm)
+        try:
+            await async_remove_12123_account(hass, sfzmhm)
+        except Exception as rem_err:
+            _LOGGER.debug("专属存储移除账号提示: %s", rem_err)
 
     other_entries = [
         item for item in hass.config_entries.async_entries(DOMAIN)
         if item.entry_id != entry.entry_id
     ]
     if not other_entries:
-        await AuthorizationDraftStore(hass).async_remove()
+        try:
+            await AuthorizationDraftStore(hass).async_remove()
+        except Exception:
+            pass
+

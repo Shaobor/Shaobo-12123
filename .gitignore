@@ -40,4 +40,7 @@ ha
 *.bin
 *.hex
 *.ipa
+*.apk
 bump_version.py
+/文件/
+文件/

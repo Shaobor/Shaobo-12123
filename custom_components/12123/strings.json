@@ -13,8 +13,8 @@
         "title": "绑定 12123 车主账号",
         "description": "授权验证通过！检测到当前授权码尚未绑定车主信息，请输入官方登录抓包参数完成车主档案绑定。",
         "data": {
-          "device_id": "设备 ID（device_id，40 位）",
-          "data": "登录响应密文（data，响应 JSON）",
+          "device_id": "设备 ID（按安卓抓包填写，示例 1c635c7825c97bf8）",
+          "data": "车主身份证号或登录响应密文（推荐直接输入18位身份证号）",
           "mobileSessionId": "会话 ID（mobileSessionId，响应头）",
           "token": "长效票据（token-，登录请求）"
         }
