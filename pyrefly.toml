@@ -1,0 +1,12 @@
+# Home Assistant 运行依赖安装在 Docker/Linux 环境中，宿主机本地无需且无法安装 homeassistant
+# 关闭 IDE 的 missing-import 虚假波浪线提示，同时保留真正的语法与逻辑错误检查
+project-includes = ["custom_components/**"]
+
+[errors]
+missing-import = false
+
+[[sub-config]]
+matches = "custom_components/**"
+
+[sub-config.errors]
+missing-import = false
