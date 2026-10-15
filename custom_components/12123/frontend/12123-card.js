@@ -12,7 +12,7 @@
   // Custom element names must start with a letter; `12123-card` is rejected
   // by the browser before the card can even receive its configuration.
   const TAG = "ha-12123-card";
-  const VERSION = "3.2.4";
+  const VERSION = "3.2.5";
   const ENTITY_FIELDS = ["user_entity", "driver_entity", "vehicle_entity", "violation_entity", "business_entity", "service_entity", "status_entity"];
 
   const DEFAULTS = {
@@ -792,11 +792,9 @@
       this._refreshingViolations = true;
       this._render();
       try {
-        try {
-          await this._hass.callService("12123", "refresh_violations", {
-            entity_id: this._config.violation_entity,
-          });
-        }
+        await this._hass.callService("12123", "refresh_violations", {
+          entity_id: this._config.violation_entity,
+        });
       } catch (error) {
         console.error(`[${TAG}] 更新违章记录失败:`, error);
       } finally {
