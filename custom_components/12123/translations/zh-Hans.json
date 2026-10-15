@@ -46,7 +46,7 @@
     "step": {
       "init": {
         "title": "12123 设置",
-        "description": "分别设置普通数据、违章信息和消息中心的自动刷新间隔，均不能少于 10 分钟。未单独设置消息间隔时沿用普通数据间隔；违章信息默认 60 分钟。",
+        "description": "分别设置普通数据、违章信息和消息中心的自动刷新间隔，均不能少于 10 分钟。请在自动化动作中自行选择手机通知服务；选择“收到新的服务提醒消息时”作为触发器后，事件数据会提供标题、正文和时间。",
         "data": {
           "scan_interval_minutes": "普通数据刷新间隔（分钟）",
           "violation_scan_interval_minutes": "违章信息刷新间隔（分钟）",
@@ -67,24 +67,6 @@
       "new_violation": "产生新的车辆违章时",
       "new_business_notice": "收到新的业务告知消息时",
       "new_service_message": "收到新的服务提醒消息时"
-    }
-  },
-  "triggers": {
-    "weiting_alert": {
-      "name": "收到违停驶离提醒时",
-      "description": "当 12123 收到违停驶离提醒时触发。"
-    },
-    "new_violation": {
-      "name": "产生新的车辆违章时",
-      "description": "当 12123 检测到新的车辆违章时触发。"
-    },
-    "new_business_notice": {
-      "name": "收到新的业务告知消息时",
-      "description": "当 12123 收到新的业务告知消息时触发。"
-    },
-    "new_service_message": {
-      "name": "收到新的服务提醒消息时",
-      "description": "当 12123 收到新的服务提醒消息时触发。"
     }
   }
 }

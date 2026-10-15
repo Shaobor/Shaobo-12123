@@ -9,9 +9,9 @@ def _load_version() -> str:
     try:
         manifest_path = Path(__file__).parent / "manifest.json"
         with open(manifest_path, "r", encoding="utf-8") as f:
-            return str(json.load(f).get("version", "3.2.5"))
+            return str(json.load(f).get("version", "3.2.6"))
     except Exception:
-        return "3.2.5"
+        return "3.2.6"
 
 
 VERSION: Final = _load_version()
