@@ -128,58 +128,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """多源动态探查服务器上已有车主档案与本地缓存车主列表。"""
         accounts_map: dict[str, dict[str, Any]] = {}
 
-        # 1. 尝试从 authorize 接口返回数据提取
+        # 仅从当前授权码通过 authorize 验证返回的数据中提取，保证严格的账号多租户隔离
         for acc in self._parse_server_accounts(auth_data):
             sf = acc.get("sfzmhm")
             if sf:
                 accounts_map[sf] = acc
-
-        # 2. 尝试从服务端 /api/admin/repair_users_table 提取已在服务器登录的车主
-        if client:
-            try:
-                repair_res = await client._post("/api/admin/repair_users_table", {})
-                current_users = (
-                    repair_res.get("current_users")
-                    or (repair_res.get("data", {}) if isinstance(repair_res.get("data"), dict) else {}).get("current_users")
-                    or []
-                )
-                if isinstance(current_users, list):
-                    for u in current_users:
-                        if isinstance(u, dict):
-                            sf = str(u.get("sfzmhm") or "").strip().upper()
-                            xm = str(u.get("xm") or "").strip()
-                            if sf:
-                                masked = f"{sf[:6]}********{sf[-4:]}" if len(sf) >= 15 else sf
-                                disp = _mask_display_name("", xm, sf)
-                                accounts_map[sf] = {
-                                    "sfzmhm": sf,
-                                    "sfzmhm_masked": masked,
-                                    "display_name": disp,
-                                    "user_name": xm,
-                                }
-            except Exception:
-                pass
-
-        # 3. 尝试从 HA 本地专属存储 (.storage/Shaobo_12123) 提取
-        try:
-            from ..storage import async_load_12123_accounts
-            saved = await async_load_12123_accounts(self.hass)
-            for sf, acc in saved.items():
-                if sf and sf != "draft_authorization_code" and isinstance(acc, dict):
-                    sf_clean = str(sf).strip().upper()
-                    if sf_clean not in accounts_map:
-                        xm = str(acc.get("user_name") or acc.get("xm") or "").strip()
-                        masked = f"{sf_clean[:6]}********{sf_clean[-4:]}" if len(sf_clean) >= 15 else sf_clean
-                        raw_disp = str(acc.get("display_name") or "").strip()
-                        disp = _mask_display_name(raw_disp, xm, sf_clean)
-                        accounts_map[sf_clean] = {
-                            "sfzmhm": sf_clean,
-                            "sfzmhm_masked": masked,
-                            "display_name": disp,
-                            "user_name": xm,
-                        }
-        except Exception:
-            pass
 
         return list(accounts_map.values())
 
