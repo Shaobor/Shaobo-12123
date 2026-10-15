@@ -60,5 +60,12 @@
       "violation_scan_interval_too_short": "违章信息刷新间隔不能少于 10 分钟。",
       "message_scan_interval_too_short": "消息中心刷新间隔不能少于 10 分钟。"
     }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "weiting_alert": "收到违停驶离提醒时",
+      "new_violation": "产生新的车辆违章时",
+      "new_service_message": "收到新的服务提醒消息时"
+    }
   }
 }

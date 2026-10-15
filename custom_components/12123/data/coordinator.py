@@ -18,6 +18,7 @@ import aiohttp
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from ..client.api import JiaoguanApiClient, JiaoguanApiError, JiaoguanAuthorizationError, JiaoguanLoginRequiredError
@@ -97,6 +98,8 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._violation_image_dir.mkdir(parents=True, exist_ok=True)
         self._migrate_legacy_violation_images(hass)
         self._last_data_update: datetime | None = None
+        self._seen_service_message_ids: set[str] | None = None
+        self._seen_violation_ids: set[str] | None = None
 
     def _migrate_legacy_violation_images(self, hass: HomeAssistant) -> None:
         """Migrate any legacy photos from old paths directly into /config/www/12123/."""
@@ -195,6 +198,10 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 fetched = True
             if fetched:
                 self._last_data_update = datetime.now(timezone.utc)
+                self._async_check_and_fire_events(
+                    violations=self._violation_cache,
+                    service_reminders=self._service_cache,
+                )
             next_due = min(
                 self._last_overview_fetch + self._overview_interval.total_seconds(),
                 self._last_violation_fetch + self._violation_scan_interval.total_seconds(),
@@ -283,6 +290,94 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
                 local_photos.append(url)
         violation["local_photos"] = local_photos
+
+    def _async_check_and_fire_events(
+        self,
+        violations: dict[str, Any] | None,
+        service_reminders: dict[str, Any] | None,
+    ) -> None:
+        """Fire Home Assistant device events for newly detected weiting notices and violations."""
+        try:
+            device_registry = dr.async_get(self.hass)
+            device = device_registry.async_get_device(
+                identifiers={(DOMAIN, self.config_entry.entry_id)}
+            )
+            device_id = device.id if device else ""
+
+            # 1. 检查服务提醒（违停驶离提醒）
+            if service_reminders and isinstance(service_reminders.get("data"), list):
+                current_msgs = service_reminders["data"]
+                current_ids = {
+                    str(m.get("xxxh"))
+                    for m in current_msgs
+                    if isinstance(m, dict) and m.get("xxxh")
+                }
+                if self._seen_service_message_ids is None:
+                    # 首次启动加载，仅初始化已见 ID 集合，不触发历史重复通知
+                    self._seen_service_message_ids = current_ids
+                else:
+                    new_ids = current_ids - self._seen_service_message_ids
+                    if new_ids:
+                        for item in current_msgs:
+                            if not isinstance(item, dict):
+                                continue
+                            msg_id = str(item.get("xxxh"))
+                            if msg_id in new_ids:
+                                event_data = {
+                                    "device_id": device_id,
+                                    "entry_id": self.config_entry.entry_id,
+                                    "xxxh": msg_id,
+                                    "xxbt": item.get("xxbt"),
+                                    "xxlb": item.get("xxlb"),
+                                    "xxlb_desc": item.get("xxlb_desc"),
+                                    "fssj": item.get("fssj"),
+                                    "hphm": item.get("hphm"),
+                                    "hpzlmc": item.get("hpzlmc"),
+                                    "wfdz": item.get("wfdz"),
+                                    "wfsj": item.get("wfsj"),
+                                    "wfms": item.get("wfms"),
+                                    "sxsj": item.get("sxsj"),
+                                    "xxnr": item.get("xxnr"),
+                                }
+                                # 触发通用服务提醒事件
+                                self.hass.bus.async_fire(
+                                    f"{DOMAIN}_new_service_message", event_data
+                                )
+                                # 如果是违停提醒，触发专属违停事件！
+                                xxbt = str(item.get("xxbt") or "")
+                                xxlb_desc = str(item.get("xxlb_desc") or "")
+                                xxnr = str(item.get("xxnr") or "")
+                                if "违停" in xxbt or "违停" in xxlb_desc or "未按规定停放" in xxnr:
+                                    self.hass.bus.async_fire(
+                                        f"{DOMAIN}_weiting_alert", event_data
+                                    )
+                        self._seen_service_message_ids.update(new_ids)
+
+            # 2. 检查违章记录变化
+            if violations and isinstance(violations.get("data"), list):
+                violation_items = violations["data"]
+                current_v_ids = set()
+                for v in violation_items:
+                    if isinstance(v, dict):
+                        vid = str(v.get("xh") or v.get("wfsj") or "")
+                        if vid:
+                            current_v_ids.add(vid)
+                if self._seen_violation_ids is None:
+                    self._seen_violation_ids = current_v_ids
+                else:
+                    new_v_ids = current_v_ids - self._seen_violation_ids
+                    if new_v_ids:
+                        self.hass.bus.async_fire(
+                            f"{DOMAIN}_new_violation",
+                            {
+                                "device_id": device_id,
+                                "entry_id": self.config_entry.entry_id,
+                                "new_count": len(new_v_ids),
+                            },
+                        )
+                        self._seen_violation_ids.update(new_v_ids)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Error checking 12123 device events: %s", exc)
 
 
 def _is_official_photo_url(url: str) -> bool:
