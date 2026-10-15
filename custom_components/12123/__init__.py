@@ -240,9 +240,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> 
     coordinator = JiaoguanDataUpdateCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
 
-    # 兼容支持老版本与新版本 HA 的 runtime_data
-    if hasattr(entry, "runtime_data"):
+    # 确保直接赋值 runtime_data，并向下兼容写入 hass.data
+    try:
         entry.runtime_data = coordinator
+    except Exception:
+        pass
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     _update_entry_title(hass, entry, coordinator)

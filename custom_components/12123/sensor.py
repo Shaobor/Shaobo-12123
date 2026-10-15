@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import entity_registry as er
 
+from .const import DOMAIN
 from .data.coordinator import JiaoguanDataUpdateCoordinator
 from .entities.category import JiaoguanCategorySensor
 
@@ -16,8 +17,9 @@ async def async_setup_entry(
     entry: ConfigEntry[JiaoguanDataUpdateCoordinator],
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create category sensors; details live in their attributes."""
-    coordinator = entry.runtime_data
+    coordinator = getattr(entry, "runtime_data", None) or hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is None:
+        return
     registry = er.async_get(hass)
     keep_unique_ids = {
         f"{entry.entry_id}_driver",

@@ -299,9 +299,17 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fire Home Assistant device events for newly detected weiting notices and violations."""
         try:
             device_registry = dr.async_get(self.hass)
-            device = device_registry.async_get_device(
-                identifiers={(DOMAIN, self.config_entry.entry_id)}
-            )
+            device = None
+            if hasattr(device_registry, "async_get_device_by_identifier"):
+                try:
+                    device = device_registry.async_get_device_by_identifier((DOMAIN, self.config_entry.entry_id))
+                except Exception:
+                    pass
+            if not device and hasattr(device_registry, "async_get_device"):
+                try:
+                    device = device_registry.async_get_device(identifiers={(DOMAIN, self.config_entry.entry_id)})
+                except Exception:
+                    pass
             device_id = device.id if device else ""
 
             # 1. 检查服务提醒（违停驶离提醒）
