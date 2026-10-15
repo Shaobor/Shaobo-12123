@@ -40,7 +40,7 @@ from .options import OptionsFlowHandler
 
 
 def _mask_name(name: str) -> str:
-    """车主姓名脱敏（隐藏姓氏）：如'王少博' -> '*少博'，'于淼' -> '*淼'。过滤'管理员'等非真实姓名。"""
+    """车主姓名脱敏（隐藏姓氏）：如'李小明' -> '*小明'，'张三' -> '*三'。过滤'管理员'等非真实姓名。"""
     name = (name or "").strip()
     if not name or "管理员" in name:
         return ""
