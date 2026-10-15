@@ -65,7 +65,26 @@
     "trigger_type": {
       "weiting_alert": "收到违停驶离提醒时",
       "new_violation": "产生新的车辆违章时",
+      "new_business_notice": "收到新的业务告知消息时",
       "new_service_message": "收到新的服务提醒消息时"
+    }
+  },
+  "triggers": {
+    "weiting_alert": {
+      "name": "收到违停驶离提醒时",
+      "description": "当 12123 收到违停驶离提醒时触发。"
+    },
+    "new_violation": {
+      "name": "产生新的车辆违章时",
+      "description": "当 12123 检测到新的车辆违章时触发。"
+    },
+    "new_business_notice": {
+      "name": "收到新的业务告知消息时",
+      "description": "当 12123 收到新的业务告知消息时触发。"
+    },
+    "new_service_message": {
+      "name": "收到新的服务提醒消息时",
+      "description": "当 12123 收到新的服务提醒消息时触发。"
     }
   }
 }

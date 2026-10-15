@@ -1,0 +1,16 @@
+# Descriptions for target-based 12123 automation triggers.
+
+new_violation:
+  target:
+    device:
+      integration: "12123"
+
+new_business_notice:
+  target:
+    device:
+      integration: "12123"
+
+new_service_message:
+  target:
+    device:
+      integration: "12123"

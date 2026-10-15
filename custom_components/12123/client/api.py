@@ -32,11 +32,13 @@ class JiaoguanApiClient:
         base_url: str,
         access_token: str | None = None,
         sfzmhm: str | None = None,
+        ha_instance_id: str | None = None,
     ) -> None:
         self._session = session
         self._base_url = base_url.rstrip("/")
         self._access_token = access_token.strip() if access_token else None
         self._sfzmhm = sfzmhm.strip().upper() if sfzmhm else None
+        self._ha_instance_id = ha_instance_id.strip() if ha_instance_id else None
 
     @property
     def access_token(self) -> str | None:
@@ -46,6 +48,10 @@ class JiaoguanApiClient:
     def set_access_token(self, value: str | None) -> None:
         """Set or update the HA access token."""
         self._access_token = value.strip() if value else None
+
+    def set_ha_instance_id(self, value: str | None) -> None:
+        """Set the Home Assistant instance id sent with authenticated requests."""
+        self._ha_instance_id = value.strip() if value else None
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -127,6 +133,8 @@ class JiaoguanApiClient:
             if not self._access_token:
                 raise JiaoguanAuthorizationError("缺少 Home Assistant 访问令牌")
             headers["Authorization"] = f"Bearer {self._access_token}"
+            if self._ha_instance_id:
+                headers["X-HA-Instance-ID"] = self._ha_instance_id
         try:
             async with self._session.post(
                 f"{self._base_url}{path}", json=payload, headers=headers,

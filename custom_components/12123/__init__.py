@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import instance_id
 
 try:
     from homeassistant.components.http import StaticPathConfig
@@ -22,6 +23,7 @@ from .const import (
     CONF_ACCESS_TOKEN,
     CONF_AUTHORIZATION_CODE,
     CONF_BACKEND_URL,
+    CONF_HA_INSTANCE_ID,
     CONF_SFZMHM,
     CONF_SFZMHM_FULL,
     DEFAULT_BACKEND_URL,
@@ -171,15 +173,13 @@ async def _async_update_listener(hass: HomeAssistant, entry: JiaoguanConfigEntry
 
 
 def _mask_name(name: str) -> str:
-    """车主姓名脱敏：2字脱敏为'小*'，3字脱敏为'李*明'，4字及以上脱敏为'欧**雪'。"""
+    """车主姓名脱敏：隐藏姓氏，例如“张三”显示为“*三”。"""
     name = (name or "").strip()
     if not name:
         return ""
     if len(name) == 1:
-        return name
-    if len(name) == 2:
-        return f"{name[0]}*"
-    return f"{name[0]}{'*' * (len(name) - 2)}{name[-1]}"
+        return "*"
+    return f"*{name[1:]}"
 
 
 def _mask_phone(value: object) -> str | None:
@@ -231,11 +231,13 @@ def _update_entry_title(
 
 async def async_setup_entry(hass: HomeAssistant, entry: JiaoguanConfigEntry) -> bool:
     """Set up a configured relay connection."""
+    ha_instance_id = entry.data.get(CONF_HA_INSTANCE_ID) or await instance_id.async_get(hass)
     client = JiaoguanApiClient(
         async_get_clientsession(hass),
         entry.data.get(CONF_BACKEND_URL, DEFAULT_BACKEND_URL),
         entry.data.get(CONF_ACCESS_TOKEN),
         entry.data.get(CONF_SFZMHM_FULL) or entry.data.get(CONF_SFZMHM),
+        ha_instance_id,
     )
     coordinator = JiaoguanDataUpdateCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()

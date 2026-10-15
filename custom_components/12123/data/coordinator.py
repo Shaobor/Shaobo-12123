@@ -98,6 +98,7 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._violation_image_dir.mkdir(parents=True, exist_ok=True)
         self._migrate_legacy_violation_images(hass)
         self._last_data_update: datetime | None = None
+        self._seen_business_message_ids: set[str] | None = None
         self._seen_service_message_ids: set[str] | None = None
         self._seen_violation_ids: set[str] | None = None
 
@@ -200,6 +201,7 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._last_data_update = datetime.now(timezone.utc)
                 self._async_check_and_fire_events(
                     violations=self._violation_cache,
+                    business_notices=self._business_cache,
                     service_reminders=self._service_cache,
                 )
             next_due = min(
@@ -294,6 +296,7 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _async_check_and_fire_events(
         self,
         violations: dict[str, Any] | None,
+        business_notices: dict[str, Any] | None,
         service_reminders: dict[str, Any] | None,
     ) -> None:
         """Fire Home Assistant device events for newly detected weiting notices and violations."""
@@ -312,7 +315,46 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     pass
             device_id = device.id if device else ""
 
-            # 1. 检查服务提醒（违停驶离提醒）
+            # 1. 检查业务告知（消息类别 2）
+            if business_notices and isinstance(business_notices.get("data"), list):
+                current_msgs = business_notices["data"]
+                current_ids = {
+                    str(m.get("xxxh"))
+                    for m in current_msgs
+                    if isinstance(m, dict) and m.get("xxxh")
+                }
+                if self._seen_business_message_ids is None:
+                    self._seen_business_message_ids = current_ids
+                else:
+                    new_ids = current_ids - self._seen_business_message_ids
+                    for item in current_msgs:
+                        if not isinstance(item, dict):
+                            continue
+                        msg_id = str(item.get("xxxh"))
+                        if msg_id not in new_ids:
+                            continue
+                        event_data = {
+                            "device_id": device_id,
+                            "entry_id": self.config_entry.entry_id,
+                            "xxxh": msg_id,
+                            "xxbt": item.get("xxbt"),
+                            "xxlb": item.get("xxlb"),
+                            "xxlb_desc": item.get("xxlb_desc"),
+                            "fssj": item.get("fssj"),
+                            "hphm": item.get("hphm"),
+                            "hpzlmc": item.get("hpzlmc"),
+                            "wfdz": item.get("wfdz"),
+                            "wfsj": item.get("wfsj"),
+                            "wfms": item.get("wfms"),
+                            "sxsj": item.get("sxsj"),
+                            "xxnr": item.get("xxnr"),
+                        }
+                        self.hass.bus.async_fire(
+                            f"{DOMAIN}_new_business_notice", event_data
+                        )
+                    self._seen_business_message_ids.update(new_ids)
+
+            # 2. 检查服务提醒（消息类别 1）
             if service_reminders and isinstance(service_reminders.get("data"), list):
                 current_msgs = service_reminders["data"]
                 current_ids = {
@@ -361,7 +403,7 @@ class JiaoguanDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                                     )
                         self._seen_service_message_ids.update(new_ids)
 
-            # 2. 检查违章记录变化
+            # 3. 检查违章记录变化
             if violations and isinstance(violations.get("data"), list):
                 violation_items = violations["data"]
                 current_v_ids = set()

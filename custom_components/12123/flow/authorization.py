@@ -40,7 +40,7 @@ from .options import OptionsFlowHandler
 
 
 def _mask_name(name: str) -> str:
-    """车主姓名脱敏（隐藏姓氏）：如'李小明' -> '*小明'，'张三' -> '*三'。过滤'管理员'等非真实姓名。"""
+    """车主姓名脱敏，避免在授权流程中显示完整姓名。"""
     name = (name or "").strip()
     if not name or "管理员" in name:
         return ""
@@ -180,7 +180,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client = None
 
             try:
-                client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url, access_token)
+                client = JiaoguanApiClient(
+                    async_get_clientsession(self.hass),
+                    backend_url,
+                    access_token,
+                    ha_instance_id=ha_instance_id,
+                )
                 result = await client.async_authorize(existing_code, ha_instance_id)
                 raw_data = result.get("data") if isinstance(result, dict) else None
                 if isinstance(raw_data, dict):
@@ -222,7 +227,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client = None
 
             try:
-                client = JiaoguanApiClient(async_get_clientsession(self.hass), backend_url, access_token)
+                client = JiaoguanApiClient(
+                    async_get_clientsession(self.hass),
+                    backend_url,
+                    access_token,
+                    ha_instance_id=ha_instance_id,
+                )
                 result = await client.async_authorize(auth_code, ha_instance_id)
                 raw_data = result.get("data") if isinstance(result, dict) else None
                 if isinstance(raw_data, dict):
@@ -321,6 +331,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._backend_url,
                     self._access_token,
                     sfzmhm_to_use,
+                    self._ha_instance_id,
                 )
                 try:
                     await client.async_fetch_overview()
@@ -387,6 +398,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._backend_url,
                 self._access_token,
                 self._sfzmhm,
+                self._ha_instance_id,
             )
             try:
                 result = await client.async_login(
@@ -491,11 +503,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._access_token = entry.data.get(CONF_ACCESS_TOKEN)
         self._authorization_label = entry.data.get(CONF_AUTHORIZATION_LABEL) or "12123"
         self._sfzmhm = entry.data.get(CONF_SFZMHM_FULL) or entry.data.get(CONF_SFZMHM)
-        self._ha_instance_id = entry.data.get(CONF_HA_INSTANCE_ID) or str(self.hass.data.get("core.uuid") or "")
+        self._ha_instance_id = entry.data.get(CONF_HA_INSTANCE_ID) or await instance_id.async_get(self.hass)
 
         if self._authorization_code:
             # 尝试刷新 access_token
-            client = JiaoguanApiClient(async_get_clientsession(self.hass), self._backend_url)
+            client = JiaoguanApiClient(
+                async_get_clientsession(self.hass),
+                self._backend_url,
+                self._access_token,
+                ha_instance_id=self._ha_instance_id,
+            )
             try:
                 res = await client.async_authorize(self._authorization_code, self._ha_instance_id)
                 raw_data = res.get("data") if isinstance(res, dict) else None

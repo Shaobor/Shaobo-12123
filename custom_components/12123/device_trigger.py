@@ -15,12 +15,17 @@ from homeassistant.const import (
 )
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.trigger import TriggerActionType, TriggerInfoType
+from homeassistant.helpers.trigger import TriggerActionType, TriggerInfo
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
 
-TRIGGER_TYPES = {"weiting_alert", "new_violation", "new_service_message"}
+TRIGGER_TYPES = {
+    "weiting_alert",  # 旧版兼容：不再在新列表中展示
+    "new_violation",
+    "new_business_notice",
+    "new_service_message",
+}
 
 TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
     {
@@ -49,8 +54,8 @@ async def async_get_triggers(
     }
 
     return [
-        {**base_trigger, CONF_TYPE: "weiting_alert"},
         {**base_trigger, CONF_TYPE: "new_violation"},
+        {**base_trigger, CONF_TYPE: "new_business_notice"},
         {**base_trigger, CONF_TYPE: "new_service_message"},
     ]
 
@@ -59,7 +64,7 @@ async def async_attach_trigger(
     hass: HomeAssistant,
     config: ConfigType,
     action: TriggerActionType,
-    trigger_info: TriggerInfoType,
+    trigger_info: TriggerInfo,
 ) -> CALLBACK_TYPE:
     """Attach a trigger."""
     event_type = f"{DOMAIN}_{config[CONF_TYPE]}"

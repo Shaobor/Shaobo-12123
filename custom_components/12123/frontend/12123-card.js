@@ -12,7 +12,7 @@
   // Custom element names must start with a letter; `12123-card` is rejected
   // by the browser before the card can even receive its configuration.
   const TAG = "ha-12123-card";
-  const VERSION = "3.2.3";
+  const VERSION = "3.2.4";
   const ENTITY_FIELDS = ["user_entity", "driver_entity", "vehicle_entity", "violation_entity", "business_entity", "service_entity", "status_entity"];
 
   const DEFAULTS = {
@@ -283,7 +283,7 @@
 
   class Jiaoguan12123Card extends HTMLElement {
     static getConfigForm() {
-      const entitySelector = { entity: { filter: [{ integration: "12123", domain: "sensor" }, { integration: "shaobo_12123", domain: "sensor" }] } };
+      const entitySelector = { entity: { filter: [{ integration: "12123", domain: "sensor" }] } };
       const labels = {
         title: "卡片名称",
         size: "卡片尺寸",
@@ -794,10 +794,6 @@
       try {
         try {
           await this._hass.callService("12123", "refresh_violations", {
-            entity_id: this._config.violation_entity,
-          });
-        } catch (_) {
-          await this._hass.callService("shaobo_12123", "refresh_violations", {
             entity_id: this._config.violation_entity,
           });
         }

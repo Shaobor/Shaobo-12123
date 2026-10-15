@@ -76,16 +76,16 @@ size: large
 4. 在列表中搜索 **12123** 并点击下载安装，随后重启 Home Assistant。
 
 ### 方式二：手动安装
-1. 下载本项目发布包中的 `custom_components/shaobo_12123` 文件夹。
+1. 下载本项目发布包中的 `custom_components/12123` 文件夹。
 2. 将其复制到 Home Assistant 配置目录下的 `custom_components/` 目录中：
    ```text
-   /config/custom_components/shaobo_12123/
+   /config/custom_components/12123/
    ```
 3. 重启 Home Assistant。
 
 ### 配置流程
 1. 进入 Home Assistant **设置 -> 设备与服务 -> 添加集成**。
-2. 搜索并选择 **12123**（`shaobo_12123`）。
+2. 搜索并选择 **12123**（`12123`）。
 3. 输入您的专属授权码，系统将自动绑定当前 HA 实例的机器码并获取访问凭据。
 4. 若授权码尚未录入车主会话，系统会引导输入抓包登录凭据完成首次绑定。
 
