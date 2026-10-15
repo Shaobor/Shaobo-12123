@@ -40,22 +40,20 @@ from .options import OptionsFlowHandler
 
 
 def _mask_name(name: str) -> str:
-    """车主姓名脱敏：2字脱敏为'小*'，3字脱敏为'李*明'，4字及以上脱敏为'欧**雪'。"""
+    """车主姓名脱敏（隐藏姓氏）：如'王少博' -> '*少博'，'于淼' -> '*淼'。过滤'管理员'等非真实姓名。"""
     name = (name or "").strip()
-    if not name:
+    if not name or "管理员" in name:
         return ""
-    if len(name) == 1:
+    if name.startswith("*"):
         return name
-    if len(name) == 2:
-        return f"{name[0]}*"
-    return f"{name[0]}{'*' * (len(name) - 2)}{name[-1]}"
+    return f"*{name[1:]}" if len(name) > 1 else "*"
 
 
 def _mask_display_name(disp: str = "", name: str = "", sf: str = "") -> str:
-    """格式化展示名称：带脱敏姓名与脱敏身份证号。"""
+    """格式化展示名称：隐藏姓氏与脱敏身份证号。"""
     masked_sf = f"{sf[:6]}********{sf[-4:]}" if len(sf) >= 15 else sf
-    if name:
-        m_name = _mask_name(name)
+    m_name = _mask_name(name)
+    if m_name:
         return f"{m_name} ({masked_sf})" if masked_sf else m_name
 
     disp = (disp or "").strip()
@@ -63,10 +61,11 @@ def _mask_display_name(disp: str = "", name: str = "", sf: str = "") -> str:
     if match:
         orig_name = match.group(1).strip()
         sf_part = match.group(2).strip()
-        return f"{_mask_name(orig_name)} ({sf_part})"
+        m_disp = _mask_name(orig_name)
+        return f"{m_disp} ({sf_part})" if m_disp else (f"{orig_name} ({sf_part})" if not orig_name.endswith("管理员") else sf_part)
     if disp and not sf:
-        return _mask_name(disp)
-    return disp
+        return _mask_name(disp) or disp
+    return f"{disp} ({masked_sf})" if (disp and masked_sf and not disp.endswith("管理员")) else (masked_sf or disp)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
