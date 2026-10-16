@@ -9,9 +9,9 @@ def _load_version() -> str:
     try:
         manifest_path = Path(__file__).parent / "manifest.json"
         with open(manifest_path, "r", encoding="utf-8") as f:
-            return str(json.load(f).get("version", "3.2.5"))
+            return str(json.load(f).get("version", "3.2.7"))
     except Exception:
-        return "3.2.5"
+        return "3.2.7"
 
 
 VERSION: Final = _load_version()
@@ -28,7 +28,7 @@ CONF_SFZMHM_FULL: Final = "sfzmhm_full"
 CONF_HA_INSTANCE_ID: Final = "ha_instance_id"
 CONF_AUTHORIZATION_LABEL: Final = "authorization_label"
 CONF_DEVICE_ID: Final = "device_id"
-CONF_LOGIN_DATA: Final = "data"
+CONF_ID_CARD: Final = "id_card"
 CONF_MOBILE_SESSION_ID: Final = "mobileSessionId"
 CONF_SSO_TOKEN: Final = "token"
 CONF_SCAN_INTERVAL_MINUTES: Final = "scan_interval_minutes"

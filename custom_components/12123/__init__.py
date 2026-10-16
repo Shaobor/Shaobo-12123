@@ -33,6 +33,7 @@ from .const import (
     VERSION,
 )
 from .data.coordinator import JiaoguanDataUpdateCoordinator
+from .views import JiaoguanCaptureTutorialView
 from .storage import (
     AuthorizationDraftStore,
     async_remove_12123_account,
@@ -81,8 +82,17 @@ async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> No
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Register the card's static files and Lovelace module resource."""
+    """Register frontend resources, help pages, and the Lovelace module resource."""
     domain_data = hass.data.setdefault(DOMAIN, {})
+
+    # The login flow links to this local page so users can open the capture
+    # instructions directly from the integration.  It contains no credentials.
+    if not domain_data.get("capture_tutorial_view_registered"):
+        try:
+            hass.http.register_view(JiaoguanCaptureTutorialView)
+            domain_data["capture_tutorial_view_registered"] = True
+        except Exception as err:
+            _LOGGER.warning("注册 12123 抓包教程页面失败: %s", err)
     frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
     if os.path.isdir(frontend_dir) and not domain_data.get("static_paths_registered"):
         try:
@@ -119,6 +129,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.warning("注册 12123 违章图片路径失败: %s", err)
 
     await _async_register_lovelace_resource(hass, f"{_CARD_URL}?v={_CARD_VERSION}")
+
+    # Keep config-flow help links in a separate browser tab so the current
+    # Home Assistant dialog and its entered login data are not lost.
+    try:
+        from homeassistant.components.frontend import add_extra_js_url
+
+        add_extra_js_url(hass, f"/{DOMAIN}/12123-helper.js?v={_CARD_VERSION}")
+    except Exception as err:
+        _LOGGER.debug("注册 12123 前端辅助脚本失败(可忽略): %s", err)
 
     if not domain_data.get("refresh_service_registered"):
         async def _handle_refresh(call: ServiceCall) -> None:

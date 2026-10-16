@@ -3,14 +3,14 @@
 # 🚗 12123 (Shaobo 12123)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/default)
-[![version](https://img.shields.io/badge/Version-3.2.3-blue.svg?style=for-the-badge)](https://github.com/Shaobor/Shaobor-12123)
+[![version](https://img.shields.io/badge/Version-3.2.7-blue.svg?style=for-the-badge)](https://github.com/Shaobor/Shaobo-12123)
 [![license](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 [![Home Assistant](https://img.shields.io/badge/Home--Assistant-2026.1%2B-blueviolet.svg?style=for-the-badge)](https://www.home-assistant.io/)
 
 **专为 Home Assistant 打造的 12123 官方品质数据监控与管理集成**  
 实时监控驾驶证记分、机动车状态、检验有效期、未处理违法违章及业务提醒通知。
 
-[✨ 特性亮点](#-特性亮点) • [📊 传感器实体清单](#-传感器实体清单) • [🎴 12123 面板卡片](#-12123-面板卡片) • [🚀 安装与配置](#-安装与配置) • [📄 许可证](#-许可证)
+[✨ 特性亮点](#-特性亮点) • [📊 传感器实体清单](#-传感器实体清单) • [🎴 12123 面板卡片](#-12123-面板卡片) • [🔔 蓝图与自动化通知](#-蓝图与自动化通知) • [🚀 安装与配置](#-安装与配置) • [📄 许可证](#-许可证)
 
 ---
 
@@ -67,6 +67,60 @@ size: large
 
 ---
 
+## 🔔 蓝图与自动化通知
+
+集成会为 12123 设备发出三类 Home Assistant 设备触发事件：
+
+- `new_service_message`：收到新的服务提醒消息
+- `new_business_notice`：收到新的业务告知消息
+- `new_violation`：产生新的车辆违章
+
+推荐使用项目自带蓝图创建自动化。蓝图文件放在集成目录中用于版本管理，Home Assistant 实际加载蓝图的位置仍是 `/config/blueprints/automation/`。
+
+### 一键导入蓝图
+
+点击下面的链接，Home Assistant 会打开蓝图导入页面：
+
+[导入“12123 服务提醒自动通知”蓝图](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FShaobor%2FShaobo-12123%2Fraw%2Frefs%2Fheads%2Fmain%2Fcustom_components%2F12123%2Fblueprints%2Fautomation%2F12123_service_reminder_notification.yaml)
+
+如果一键链接无法打开，也可以在 Home Assistant 中进入 **设置 → 自动化与场景 → 蓝图 → 导入蓝图**，粘贴下面的地址：
+
+```text
+https://github.com/Shaobor/Shaobo-12123/raw/refs/heads/main/custom_components/12123/blueprints/automation/12123_service_reminder_notification.yaml
+```
+
+### 手动复制蓝图
+
+将仓库中的以下文件复制到 Home Assistant 配置目录：
+
+```text
+/config/blueprints/automation/12123/12123_service_reminder_notification.yaml
+```
+
+复制完成后重新加载自动化，或重启 Home Assistant。不要把蓝图只放在 `/config/custom_components/12123/` 中；集成目录用于代码和前端资源，蓝图目录才是 Home Assistant 的蓝图扫描目录。
+
+### 创建自动化
+
+1. 进入 **设置 → 自动化与场景 → 蓝图**，找到 **12123 服务提醒自动通知**，点击“创建自动化”。
+2. **12123 设备**：选择要监听的 12123 集成设备。
+3. **手机设备**：选择已经安装 Home Assistant Companion App 的手机设备。
+4. **通知类型**：可以多选。只想收到服务提醒时，仅勾选“收到新的服务提醒消息”；需要业务告知或违章提醒时再勾选对应选项。
+5. **持续通知**：打开后使用持续、置顶和实时更新参数；关闭后发送普通通知。这个开关不等同于 iOS 的“关键通知”，是否显示灵动岛由手机系统和 Companion App 决定。
+6. 保存自动化。
+
+### 测试通知
+
+打开刚创建的自动化详情，点击右上角菜单中的 **执行**（或“运行”）。手动执行时没有真实触发事件，蓝图会发送一条“12123 测试通知”；实际收到服务提醒、业务告知或违章事件时，通知会自动带入对应的标题、正文和时间。
+
+### 没有触发器或手机选项时
+
+- 先确认 12123 集成已成功加载，并且设备已经出现在设备列表中。
+- 手机需要安装并登录 Home Assistant Companion App，且已经被 HA 发现为 `mobile_app` 设备。
+- 更新集成后重启 Home Assistant；蓝图导入页面和自动化编辑器会重新读取触发器定义。
+- 若只想监听服务提醒，检查自动化的“通知类型”是否只勾选了“收到新的服务提醒消息”。
+
+---
+
 ## 🚀 安装与配置
 
 ### 方式一：HACS 自定义存储库安装（推荐）
@@ -87,7 +141,7 @@ size: large
 1. 进入 Home Assistant **设置 -> 设备与服务 -> 添加集成**。
 2. 搜索并选择 **12123**（`12123`）。
 3. 输入您的专属授权码，系统将自动绑定当前 HA 实例的机器码并获取访问凭据。
-4. 若授权码尚未录入车主会话，系统会引导输入抓包登录凭据完成首次绑定。
+4. 若授权码尚未录入车主会话，系统会引导输入抓包登录凭据完成首次绑定；登录页面内置“12123 登录抓包详细教程”链接，可直接打开查看请求地址和字段提取位置。现在直接填写本人 18 位身份证号码，不再要求填写版本相关的登录密文 data。
 
 
 ---

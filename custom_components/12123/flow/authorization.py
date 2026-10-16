@@ -21,6 +21,7 @@ from ..client.api import (
     JiaoguanConnectionError,
     JiaoguanLoginRequiredError,
 )
+from ..views import JiaoguanCaptureTutorialView
 from ..const import (
     CONF_ACCESS_TOKEN,
     CONF_AUTHORIZATION_CODE,
@@ -28,7 +29,7 @@ from ..const import (
     CONF_BACKEND_URL,
     CONF_DEVICE_ID,
     CONF_HA_INSTANCE_ID,
-    CONF_LOGIN_DATA,
+    CONF_ID_CARD,
     CONF_MOBILE_SESSION_ID,
     CONF_SFZMHM,
     CONF_SFZMHM_FULL,
@@ -393,6 +394,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Step 2: Submit official 12123 capture credentials under the acquired token."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            identity_number = str(user_input[CONF_ID_CARD] or "").strip().upper()
+            if not _valid_sfzmhm(identity_number):
+                errors["base"] = "invalid_id_card"
+                return self._login_form(errors)
+
             client = JiaoguanApiClient(
                 async_get_clientsession(self.hass),
                 self._backend_url,
@@ -403,7 +409,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 result = await client.async_login(
                     device_id=user_input[CONF_DEVICE_ID].strip(),
-                    data=user_input[CONF_LOGIN_DATA].strip(),
+                    # The relay still calls this JSON field ``data`` for
+                    # compatibility, but the UI now deliberately accepts
+                    # only the 18-digit identity number.  This avoids
+                    # version-dependent login ciphertext decryption.
+                    data=identity_number,
                     mobile_session_id=user_input[CONF_MOBILE_SESSION_ID].strip(),
                     token=user_input[CONF_SSO_TOKEN].strip(),
                 )
@@ -532,12 +542,51 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="login",
             data_schema=vol.Schema({
                 vol.Required(CONF_DEVICE_ID): str,
-                vol.Required(CONF_LOGIN_DATA): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+                vol.Required(CONF_ID_CARD): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
                 vol.Required(CONF_MOBILE_SESSION_ID): str,
                 vol.Required(CONF_SSO_TOKEN): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             }),
             errors=errors or {},
+            description_placeholders={
+                "tutorial_url": self._get_capture_tutorial_url(),
+            },
         )
+
+    def _get_capture_tutorial_url(self) -> str:
+        """Return the local capture tutorial URL used by the config flow."""
+        domain_data = self.hass.data.setdefault(DOMAIN, {})
+        if not domain_data.get("capture_tutorial_view_registered"):
+            try:
+                self.hass.http.register_view(JiaoguanCaptureTutorialView)
+                domain_data["capture_tutorial_view_registered"] = True
+            except Exception:
+                # async_setup normally registers it first; a duplicate route
+                # must not prevent the login form from opening.
+                pass
+
+        # A relative URL works in the HA frontend.  When a config flow is
+        # opened through a reverse proxy, an absolute URL preserves that host
+        # and allows the tutorial to open in a new tab just like other HA help
+        # links.
+        try:
+            from homeassistant.components.http import current_request
+
+            request = current_request.get()
+            if request and request.host:
+                scheme = request.scheme or "http"
+                target_host = request.host
+                # Home Assistant's Markdown renderer treats a different host
+                # as an external link and opens it in a new tab.  Swap the
+                # loopback aliases only; remote/reverse-proxy hosts remain
+                # untouched and preserve the user's current access path.
+                if "127.0.0.1" in target_host:
+                    target_host = target_host.replace("127.0.0.1", "localhost")
+                elif "localhost" in target_host:
+                    target_host = target_host.replace("localhost", "127.0.0.1")
+                return f"{scheme}://{target_host}/api/12123/capture_tutorial"
+        except Exception:
+            pass
+        return "/api/12123/capture_tutorial"
 
 
 def _valid_sfzmhm(value: Any) -> bool:

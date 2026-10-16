@@ -1,0 +1,133 @@
+blueprint:
+  name: 12123 服务提醒自动通知
+  description: >-
+    当 12123 收到你选择的新数据时，自动把标题、正文和时间发送到你选择的手机。
+    可选择持续通知或普通通知；不需要在 12123 集成设置里配置手机通知服务。
+  domain: automation
+  author: Shaobor
+  input:
+    source_device:
+      name: 12123 设备
+      description: 选择要监听的 12123 设备。
+      selector:
+        device:
+          filter:
+            integration: "12123"
+    notify_device:
+      name: 手机设备
+      description: 选择接收通知的 Home Assistant 手机设备。
+      selector:
+        device:
+          filter:
+            integration: mobile_app
+    trigger_type:
+      name: 通知类型
+      description: 选择收到哪一类 12123 新数据时发送通知。
+      default: ["new_service_message"]
+      selector:
+        select:
+          mode: list
+          multiple: true
+          options:
+            - label: 收到新的服务提醒消息
+              value: new_service_message
+            - label: 收到新的业务告知消息
+              value: new_business_notice
+            - label: 产生新的车辆违章
+              value: new_violation
+    persistent_notification:
+      name: 持续通知
+      description: 勾选后通知会保持在手机上，并使用持续通知参数；取消勾选则发送普通通知。
+      default: true
+      selector:
+        boolean:
+
+triggers:
+  - trigger: device
+    id: new_service_message
+    device_id: !input source_device
+    domain: "12123"
+    type: new_service_message
+  - trigger: device
+    id: new_business_notice
+    device_id: !input source_device
+    domain: "12123"
+    type: new_business_notice
+  - trigger: device
+    id: new_violation
+    device_id: !input source_device
+    domain: "12123"
+    type: new_violation
+
+variables:
+  selected_trigger_type: !input trigger_type
+  use_persistent_notification: !input persistent_notification
+  notification_type: >-
+    {{ trigger.id if trigger is defined and trigger.id is defined else 'test' }}
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger is not defined or trigger.id is not defined or trigger.id in selected_trigger_type }}
+
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ use_persistent_notification }}"
+        sequence:
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: >-
+              {% if notification_type == 'new_violation' %}
+                新的车辆违章
+              {% elif notification_type == 'test' %}
+                12123 测试通知
+              {% elif trigger is defined and trigger.event is defined %}
+                {{ trigger.event.data.xxbt | default('新的服务提醒', true) }}
+              {% else %}
+                12123 测试通知
+              {% endif %}
+            message: >-
+              {% if notification_type == 'new_violation' %}
+                检测到 {{ trigger.event.data.new_count | default(0) }} 条新的车辆违章。
+              {% elif notification_type == 'test' %}
+                这是一条测试通知。实际收到新数据时，会自动显示 12123 的标题、正文和时间。
+              {% elif trigger is defined and trigger.event is defined %}
+                {{ trigger.event.data.xxnr | default('收到新的服务提醒', true) }}{% if trigger.event.data.fssj %}
+                时间：{{ trigger.event.data.fssj }}{% endif %}
+              {% else %}
+                这是一条测试通知。
+              {% endif %}
+            data:
+              tag: >-
+                12123-{{ notification_type }}-{{ trigger.event.data.xxxh | default(trigger.event.data.new_count | default('test'), true) if trigger is defined and trigger.event is defined else 'test' }}
+              persistent: true
+              sticky: true
+              live_update: true
+    default:
+      - domain: mobile_app
+        type: notify
+        device_id: !input notify_device
+        title: >-
+          {% if notification_type == 'new_violation' %}
+            新的车辆违章
+          {% elif notification_type == 'test' %}
+            12123 测试通知
+          {% elif trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.xxbt | default('新的服务提醒', true) }}
+          {% else %}
+            12123 测试通知
+          {% endif %}
+        message: >-
+          {% if notification_type == 'new_violation' %}
+            检测到 {{ trigger.event.data.new_count | default(0) }} 条新的车辆违章。
+          {% elif notification_type == 'test' %}
+            这是一条测试通知。实际收到新数据时，会自动显示 12123 的标题、正文和时间。
+          {% elif trigger is defined and trigger.event is defined %}
+            {{ trigger.event.data.xxnr | default('收到新的服务提醒', true) }}{% if trigger.event.data.fssj %}
+            时间：{{ trigger.event.data.fssj }}{% endif %}
+          {% else %}
+            这是一条测试通知。
+          {% endif %}

@@ -11,12 +11,18 @@
       },
       "login": {
         "title": "绑定 12123 车主账号",
-        "description": "授权验证通过！检测到当前授权码尚未绑定车主信息，请输入官方登录抓包参数完成车主档案绑定。",
+        "description": "授权验证通过！检测到当前授权码尚未绑定车主信息，请输入官方登录抓包参数完成车主档案绑定。\n\n👉 **[📘 点击打开 12123 登录抓包详细教程]({tutorial_url})**\n\n教程会说明 iOS/安卓设备 ID、登录请求以及身份证号、会话 ID、token 的提取位置。",
         "data": {
-          "device_id": "设备 ID（按安卓抓包填写，示例 1c635c7825c97bf8）",
-          "data": "车主身份证号或登录响应密文（推荐直接输入18位身份证号）",
+          "device_id": "设备 ID（iOS 40 位，安卓 16 位；按抓包原值填写）",
+          "id_card": "车主身份证号码（18 位）",
           "mobileSessionId": "会话 ID（mobileSessionId，响应头）",
           "token": "长效票据（token-，登录请求）"
+        },
+        "data_description": {
+          "device_id": "从登录请求中复制 deviceId/deviceID；iOS 为 40 位，安卓为 16 位。",
+          "id_card": "填写车主本人 18 位身份证号（末位可为 X），不要填写登录响应密文。",
+          "mobileSessionId": "从登录响应头复制 mobileSessionId。",
+          "token": "从登录响应头复制 token，通常以 token- 开头。"
         }
       },
       "select_account": {
@@ -33,6 +39,7 @@
       "cannot_connect": "无法连接到后端，请检查后端网关地址和网络。",
       "unknown": "授权验证时发生未知错误。",
       "login_failed": "登录参数无效、登录已失效，或后端未能保存会话。请提交新的登录抓包参数。",
+      "invalid_id_card": "请输入本人有效的 18 位身份证号码（末位可为 X）。",
       "account_already_configured": "该车主账号已在当前系统添加，请勿重复添加。"
     },
     "abort": {
@@ -46,7 +53,7 @@
     "step": {
       "init": {
         "title": "12123 设置",
-        "description": "分别设置普通数据、违章信息和消息中心的自动刷新间隔，均不能少于 10 分钟。未单独设置消息间隔时沿用普通数据间隔；违章信息默认 60 分钟。",
+        "description": "分别设置普通数据、违章信息和消息中心的自动刷新间隔，均不能少于 10 分钟。请在自动化动作中自行选择手机通知服务；选择“收到新的服务提醒消息时”作为触发器后，事件数据会提供标题、正文和时间。",
         "data": {
           "scan_interval_minutes": "普通数据刷新间隔（分钟）",
           "violation_scan_interval_minutes": "违章信息刷新间隔（分钟）",
@@ -67,24 +74,6 @@
       "new_violation": "产生新的车辆违章时",
       "new_business_notice": "收到新的业务告知消息时",
       "new_service_message": "收到新的服务提醒消息时"
-    }
-  },
-  "triggers": {
-    "weiting_alert": {
-      "name": "收到违停驶离提醒时",
-      "description": "当 12123 收到违停驶离提醒时触发。"
-    },
-    "new_violation": {
-      "name": "产生新的车辆违章时",
-      "description": "当 12123 检测到新的车辆违章时触发。"
-    },
-    "new_business_notice": {
-      "name": "收到新的业务告知消息时",
-      "description": "当 12123 收到新的业务告知消息时触发。"
-    },
-    "new_service_message": {
-      "name": "收到新的服务提醒消息时",
-      "description": "当 12123 收到新的服务提醒消息时触发。"
     }
   }
 }

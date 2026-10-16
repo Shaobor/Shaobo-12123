@@ -5,8 +5,8 @@
     "@shaobor"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/Shaobor/Shaobor-12123",
+  "documentation": "https://github.com/Shaobor/Shaobo-12123",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/Shaobor/Shaobor-12123/issues",
-  "version": "3.2.5"
+  "issue_tracker": "https://github.com/Shaobor/Shaobo-12123/issues",
+  "version": "3.2.7"
 }
